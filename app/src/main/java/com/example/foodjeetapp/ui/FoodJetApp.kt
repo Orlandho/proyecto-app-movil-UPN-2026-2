@@ -6,33 +6,49 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.*
 import com.example.foodjeetapp.ui.components.FoodJetBottomBar
 import com.example.foodjeetapp.ui.components.FoodJetTopBar
 import com.example.foodjeetapp.ui.screens.*
+import com.example.foodjeetapp.ui.viewmodel.AuthViewModel
+import com.example.foodjeetapp.ui.viewmodel.CartViewModel
+import com.example.foodjeetapp.ui.viewmodel.HomeViewModel
+import com.example.foodjeetapp.ui.viewmodel.OrderViewModel
 import kotlinx.coroutines.launch
 
+/**
+ * Contenedor principal de la aplicación FoodJet.
+ * Implementa el patrón MVVM (REQ-SEM06-LOG-01) y retiene estado con ViewModels (REQ-SEM06-LOG-02).
+ * Consume flujos de estado inmutables con collectAsStateWithLifecycle (REQ-SEM06-VIS-01).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FoodJetApp() {
+fun FoodJetApp(
+    homeViewModel: HomeViewModel = viewModel(),
+    cartViewModel: CartViewModel = viewModel(),
+    orderViewModel: OrderViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
+) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Estados de datos
-    var currentUser by remember { mutableStateOf(UserProfile(isStudent = true)) }
-    var isLoggedIn by remember { mutableStateOf(true) }
-    var favorites by remember { mutableStateOf(setOf(1, 3)) } // Hamburguesa y Pizza Pepperoni en favoritos por defecto
-    var cartItems by remember {
-        mutableStateOf(
-            listOf(
-                CartItem(FoodJetMockData.products[0], 1)
-            )
-        )
-    }
-    var orders by remember { mutableStateOf(FoodJetMockData.initialOrders) }
+    // Estados expuestos por los ViewModels (Arquitectura MVVM limpia)
+    val productsState by homeViewModel.productsState.collectAsStateWithLifecycle()
+    val favorites by homeViewModel.favorites.collectAsStateWithLifecycle()
 
-    // Estados de navegación y vistas
-    var currentRoute by remember { mutableStateOf("home") } // home, menu, favorites, orders, profile, checkout, tracking, dashboard
+    val cartItems by cartViewModel.cartItems.collectAsStateWithLifecycle()
+    val ordersState by orderViewModel.ordersState.collectAsStateWithLifecycle()
+
+    val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+    val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
+
+    val activeUser = currentUser ?: UserProfile(name = "Invitado", email = "", isStudent = false)
+
+    // Estados de navegación y vistas de interfaz
+    var currentRoute by remember { mutableStateOf("home") } // home, menu, favorites, orders, checkout, tracking, dashboard
 
     // Estados de Hojas y Modales
     var showCartSheet by remember { mutableStateOf(false) }
@@ -43,7 +59,6 @@ fun FoodJetApp() {
     var showMiCuentaDialog by remember { mutableStateOf(false) }
 
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     val cartCount = cartItems.sumOf { it.quantity }
 
     Scaffold(
@@ -54,7 +69,7 @@ fun FoodJetApp() {
                     cartCount = cartCount,
                     favoritesCount = favorites.size,
                     isLoggedIn = isLoggedIn,
-                    userName = currentUser.name,
+                    userName = activeUser.name,
                     onLogoClick = { currentRoute = "home" },
                     onCartClick = { showCartSheet = true },
                     onFavoritesClick = { currentRoute = "favorites" },
@@ -96,59 +111,49 @@ fun FoodJetApp() {
             when (currentRoute) {
                 "home", "menu" -> {
                     HomeScreen(
-                        isStudent = currentUser.isStudent,
+                        productsState = productsState,
+                        promotions = homeViewModel.getPromotions(),
+                        isStudent = activeUser.isStudent,
                         favorites = favorites,
                         onFavoriteToggle = { id ->
-                            favorites = if (favorites.contains(id)) {
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Eliminado de favoritos")
-                                }
-                                favorites - id
-                            } else {
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("¡Añadido a favoritos! ❤️")
-                                }
-                                favorites + id
+                            val wasFav = favorites.contains(id)
+                            homeViewModel.toggleFavorite(id)
+                            coroutineScope.launch {
+                                val msg = if (wasFav) "Eliminado de favoritos" else "¡Añadido a favoritos! ❤️"
+                                snackbarHostState.showSnackbar(msg)
                             }
                         },
                         onAddToCart = { product ->
-                            val existingIndex = cartItems.indexOfFirst { it.product.id == product.id }
-                            cartItems = if (existingIndex != -1) {
-                                cartItems.mapIndexed { idx, item ->
-                                    if (idx == existingIndex) item.copy(quantity = item.quantity + 1) else item
-                                }
-                            } else {
-                                cartItems + CartItem(product, 1)
-                            }
+                            cartViewModel.addToCart(product)
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("¡${product.nombre} añadido al carrito!")
                             }
                         },
                         onNavigateToMenu = {
                             currentRoute = "menu"
+                        },
+                        onRetry = {
+                            homeViewModel.retry()
                         }
                     )
                 }
                 "favorites" -> {
-                    val favoriteProducts = FoodJetMockData.products.filter { favorites.contains(it.id) }
+                    val favoriteProducts = if (productsState is UiState.Success) {
+                        (productsState as UiState.Success<List<ProductItem>>).data.filter { favorites.contains(it.id) }
+                    } else {
+                        emptyList()
+                    }
                     FavoritesScreen(
                         favoriteProducts = favoriteProducts,
-                        isStudent = currentUser.isStudent,
+                        isStudent = activeUser.isStudent,
                         onRemoveFavorite = { id ->
-                            favorites = favorites - id
+                            homeViewModel.toggleFavorite(id)
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("Eliminado de favoritos")
                             }
                         },
                         onAddToCart = { product ->
-                            val existingIndex = cartItems.indexOfFirst { it.product.id == product.id }
-                            cartItems = if (existingIndex != -1) {
-                                cartItems.mapIndexed { idx, item ->
-                                    if (idx == existingIndex) item.copy(quantity = item.quantity + 1) else item
-                                }
-                            } else {
-                                cartItems + CartItem(product, 1)
-                            }
+                            cartViewModel.addToCart(product)
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("¡${product.nombre} añadido al carrito!")
                             }
@@ -157,8 +162,13 @@ fun FoodJetApp() {
                     )
                 }
                 "orders" -> {
+                    val ordersList = if (ordersState is UiState.Success) {
+                        (ordersState as UiState.Success<List<OrderRecord>>).data
+                    } else {
+                        emptyList()
+                    }
                     OrderHistoryScreen(
-                        orders = orders,
+                        orders = ordersList,
                         onLeaveReview = { order ->
                             reviewTargetOrder = order
                         },
@@ -168,28 +178,28 @@ fun FoodJetApp() {
                 "checkout" -> {
                     CheckoutScreen(
                         cartItems = cartItems,
-                        isStudent = currentUser.isStudent,
-                        initialName = currentUser.name,
-                        initialPhone = currentUser.phone,
+                        isStudent = activeUser.isStudent,
+                        initialName = activeUser.name,
+                        initialPhone = activeUser.phone,
                         onBackToMenu = { currentRoute = "home" },
                         onConfirmOrder = { method, total ->
                             if (method == "wallet") {
                                 showQrDialog = true
                             } else {
-                                // Crear nuevo registro de pedido
                                 val newOrder = OrderRecord(
-                                    id = "FJ-1004",
+                                    id = "FJ-${System.currentTimeMillis() % 10000}",
                                     fecha = "6 de Septiembre, 2026",
                                     estado = OrderStatus.PENDIENTE,
                                     items = cartItems,
-                                    subtotal = cartItems.sumOf { it.product.getEffectivePrice(currentUser.isStudent) * it.quantity },
-                                    impuestos = total * 0.18,
+                                    subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
+                                    impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
                                     total = total,
                                     paymentMethod = if (method == "card") "Tarjeta" else "Efectivo"
                                 )
-                                orders = listOf(newOrder) + orders
-                                cartItems = emptyList()
-                                currentRoute = "tracking"
+                                orderViewModel.createOrder(newOrder) {
+                                    cartViewModel.clearCart()
+                                    currentRoute = "tracking"
+                                }
                             }
                         }
                     )
@@ -209,7 +219,7 @@ fun FoodJetApp() {
         }
     }
 
-    // Modal BottomSheet del Carrito (Enfoque Híbrido Móvil)
+    // Modal BottomSheet del Carrito
     if (showCartSheet) {
         ModalBottomSheet(
             onDismissRequest = { showCartSheet = false },
@@ -217,18 +227,12 @@ fun FoodJetApp() {
         ) {
             CartSheet(
                 cartItems = cartItems,
-                isStudent = currentUser.isStudent,
+                isStudent = activeUser.isStudent,
                 onIncreaseQty = { productId ->
-                    cartItems = cartItems.map {
-                        if (it.product.id == productId) it.copy(quantity = it.quantity + 1) else it
-                    }
+                    cartViewModel.increaseQuantity(productId)
                 },
                 onDecreaseQty = { productId ->
-                    cartItems = cartItems.mapNotNull {
-                        if (it.product.id == productId) {
-                            if (it.quantity > 1) it.copy(quantity = it.quantity - 1) else null
-                        } else it
-                    }
+                    cartViewModel.decreaseQuantity(productId)
                 },
                 onProceedToCheckout = {
                     showCartSheet = false
@@ -244,11 +248,11 @@ fun FoodJetApp() {
         LoginDialog(
             onDismiss = { showLoginDialog = false },
             onLoginSuccess = { email ->
-                isLoggedIn = true
-                currentUser = currentUser.copy(email = email)
-                showLoginDialog = false
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("¡Bienvenido de vuelta, ${currentUser.name}!")
+                authViewModel.login(email) { userName ->
+                    showLoginDialog = false
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("¡Bienvenido de vuelta, $userName!")
+                    }
                 }
             },
             onSwitchToRegister = {
@@ -263,11 +267,11 @@ fun FoodJetApp() {
         RegisterDialog(
             onDismiss = { showRegisterDialog = false },
             onRegisterSuccess = { name, email, phone ->
-                isLoggedIn = true
-                currentUser = UserProfile(name = name, email = email, phone = phone, isStudent = false)
-                showRegisterDialog = false
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("¡Cuenta creada exitosamente!")
+                authViewModel.register(name, email, phone) {
+                    showRegisterDialog = false
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("¡Cuenta creada exitosamente!")
+                    }
                 }
             },
             onSwitchToLogin = {
@@ -284,18 +288,19 @@ fun FoodJetApp() {
             onPaymentConfirmed = {
                 showQrDialog = false
                 val newOrder = OrderRecord(
-                    id = "FJ-1004",
+                    id = "FJ-${System.currentTimeMillis() % 10000}",
                     fecha = "6 de Septiembre, 2026",
                     estado = OrderStatus.EN_PREPARACION,
                     items = cartItems,
-                    subtotal = cartItems.sumOf { it.product.getEffectivePrice(currentUser.isStudent) * it.quantity },
-                    impuestos = 3.50,
-                    total = 28.50,
+                    subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
+                    impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
+                    total = cartViewModel.getTotal(activeUser.isStudent),
                     paymentMethod = "Billetera Digital (Yape)"
                 )
-                orders = listOf(newOrder) + orders
-                cartItems = emptyList()
-                currentRoute = "tracking"
+                orderViewModel.createOrder(newOrder) {
+                    cartViewModel.clearCart()
+                    currentRoute = "tracking"
+                }
             }
         )
     }
@@ -306,12 +311,11 @@ fun FoodJetApp() {
             order = order,
             onDismiss = { reviewTargetOrder = null },
             onSubmitReview = { orderId, stars, comment ->
-                orders = orders.map {
-                    if (it.id == orderId) it.copy(reviewStars = stars, reviewComment = comment) else it
-                }
-                reviewTargetOrder = null
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("¡Gracias por calificar tu pedido!")
+                orderViewModel.submitReview(orderId, stars, comment) {
+                    reviewTargetOrder = null
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("¡Gracias por calificar tu pedido!")
+                    }
                 }
             }
         )
@@ -320,21 +324,23 @@ fun FoodJetApp() {
     // Diálogo Mi Cuenta
     if (showMiCuentaDialog) {
         MiCuentaDialog(
-            userName = currentUser.name,
-            userEmail = currentUser.email,
-            isStudent = currentUser.isStudent,
+            userName = activeUser.name,
+            userEmail = activeUser.email,
+            isStudent = activeUser.isStudent,
             onVerifyStudent = {
-                currentUser = currentUser.copy(isStudent = true)
-                showMiCuentaDialog = false
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
+                authViewModel.verifyStudent {
+                    showMiCuentaDialog = false
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
+                    }
                 }
             },
             onLogout = {
-                isLoggedIn = false
-                showMiCuentaDialog = false
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Sesión cerrada")
+                authViewModel.logout {
+                    showMiCuentaDialog = false
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Sesión cerrada")
+                    }
                 }
             },
             onDismiss = { showMiCuentaDialog = false }

@@ -84,14 +84,14 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 6: Arquitectura MVVM y Evaluación T1
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM06-VIS-01: Vincular las pantallas de Jetpack Compose al estado inmutable expuesto por el ViewModel mediante collectAsStateWithLifecycle.
+- [x] REQ-SEM06-VIS-01: Vincular las pantallas de Jetpack Compose al estado inmutable expuesto por el ViewModel mediante collectAsStateWithLifecycle.
 - [x] REQ-SEM06-VIS-02: Renderizar de forma condicional vistas de carga, vistas de contenido, vistas de error con botón de reintento y vistas para datos vacíos.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM06-LOG-01: Implementar formalmente el patrón arquitectónico Model View ViewModel separando la interfaz de la lógica de negocio y del acceso a datos.
-- [ ] REQ-SEM06-LOG-02: Implementar clases ViewModel que extiendan de Android ViewModel para retener estado ante cambios de configuración del dispositivo como giros de pantalla.
-- [ ] REQ-SEM06-LOG-03: Implementar el patrón Repository como mediador y única fuente de verdad entre la capa de datos local y la interfaz.
-- [ ] REQ-SEM06-LOG-04: Modelar el estado de la pantalla mediante clases selladas de Kotlin y exponerlo usando StateFlow y SharedFlow para eventos únicos.
+- [x] REQ-SEM06-LOG-01: Implementar formalmente el patrón arquitectónico Model View ViewModel separando la interfaz de la lógica de negocio y del acceso a datos.
+- [x] REQ-SEM06-LOG-02: Implementar clases ViewModel que extiendan de Android ViewModel para retener estado ante cambios de configuración del dispositivo como giros de pantalla.
+- [x] REQ-SEM06-LOG-03: Implementar el patrón Repository como mediador y única fuente de verdad entre la capa de datos local y la interfaz.
+- [x] REQ-SEM06-LOG-04: Modelar el estado de la pantalla mediante clases selladas de Kotlin y exponerlo usando StateFlow y SharedFlow para eventos únicos.
 
 ### Persistencia, Infraestructura y Configuración
 - [ ] REQ-SEM06-INF-01: Ejecutar pruebas técnicas de verificación sobre la persistencia local en Room y la estabilidad del flujo MVVM para el hito evaluativo T1.
