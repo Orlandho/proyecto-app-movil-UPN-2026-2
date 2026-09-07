@@ -8,51 +8,51 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 1: Ecosistema Android y Configuración Base
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM01-VIS-01: Diseñar los primeros esquemas de interfaz para pantallas móviles considerando principios de usabilidad y diseño limpio.
+- [x] REQ-SEM01-VIS-01: Diseñar los primeros esquemas de interfaz para pantallas móviles considerando principios de usabilidad y diseño limpio.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM01-LOG-01: Establecer las directrices técnicas de optimización en el uso de CPU y memoria desde la concepción del software para garantizar un consumo responsable de recursos según el Objetivo de Desarrollo Sostenible 12.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM01-INF-01: Configurar el proyecto inicial en Android Studio con soporte para Kotlin moderno y compatibilidad con dispositivos móviles Android.
-- [ ] REQ-SEM01-INF-02: Configurar Gradle Kotlin DSL y estructurar el árbol de paquetes respetando la separación de responsabilidades del sistema.
+- [x] REQ-SEM01-INF-01: Configurar el proyecto inicial en Android Studio con soporte para Kotlin moderno y compatibilidad con dispositivos móviles Android.
+- [x] REQ-SEM01-INF-02: Configurar Gradle Kotlin DSL y estructurar el árbol de paquetes respetando la separación de responsabilidades del sistema.
 
 ---
 
 ## Semana 2: Entorno de Desarrollo y Fundamentos Declarativos
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM02-VIS-01: Crear los primeros componentes composables con Jetpack Compose verificando su correcta renderización visual y previsualización.
+- [x] REQ-SEM02-VIS-01: Crear los primeros componentes composables con Jetpack Compose verificando su correcta renderización visual y previsualización.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM02-LOG-01: Implementar el punto de entrada de la interfaz mediante ComponentActivity y la invocación del método setContent.
+- [x] REQ-SEM02-LOG-01: Implementar el punto de entrada de la interfaz mediante ComponentActivity y la invocación del método setContent.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM02-INF-01: Configurar el catálogo de versiones centralizado mediante el archivo libs.versions.toml para dependencias y complementos.
-- [ ] REQ-SEM02-INF-02: Habilitar las banderas de compilación para Jetpack Compose en el archivo build.gradle.kts del módulo principal.
+- [x] REQ-SEM02-INF-01: Configurar el catálogo de versiones centralizado mediante el archivo libs.versions.toml para dependencias y complementos.
+- [x] REQ-SEM02-INF-02: Habilitar las banderas de compilación para Jetpack Compose en el archivo build.gradle.kts del módulo principal.
 
 ---
 
 ## Semana 3: Interfaz de Usuario con Material Design 3
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM03-VIS-01: Implementar el sistema de diseño Material Design 3 configurando esquemas de color dinámicos para modo claro y modo oscuro.
-- [ ] REQ-SEM03-VIS-02: Diseñar la tipografía, formas y componentes visuales modulares como tarjetas, botones elevados y barras de navegación superior e inferior.
-- [ ] REQ-SEM03-VIS-03: Implementar Compose Navigation mediante NavHost y composables para la navegación modular entre pantallas con paso de argumentos.
+- [x] REQ-SEM03-VIS-01: Implementar el sistema de diseño Material Design 3 configurando esquemas de color dinámicos para modo claro y modo oscuro.
+- [x] REQ-SEM03-VIS-02: Diseñar la tipografía, formas y componentes visuales modulares como tarjetas, botones elevados y barras de navegación superior e inferior.
+- [x] REQ-SEM03-VIS-03: Implementar Compose Navigation mediante NavHost y composables para la navegación modular entre pantallas con paso de argumentos.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM03-LOG-01: Gestionar estados inmutables dentro de la interfaz gráfica mediante remember y mutableStateOf para evitar recomposiciones innecesarias.
+- [x] REQ-SEM03-LOG-01: Gestionar estados inmutables dentro de la interfaz gráfica mediante remember y mutableStateOf para evitar recomposiciones innecesarias.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM03-INF-01: Configurar temas y estilos centralizados en el paquete de diseño de la aplicación para reutilización global en la interfaz.
+- [x] REQ-SEM03-INF-01: Configurar temas y estilos centralizados en el paquete de diseño de la aplicación para reutilización global en la interfaz.
 
 ---
 
 ## Semana 4: Ciclo de Vida, Intents y Validaciones
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM04-VIS-01: Diseñar interfaces de formularios con validación visual reactiva mostrando mensajes de error dinámicos bajo campos de texto y control de habilitación de botones.
-- [ ] REQ-SEM04-VIS-02: Aplicar directrices técnicas de accesibilidad móvil asegurando descripciones de contenido para lectores de pantalla y áreas táctiles mínimas reglamentarias.
+- [x] REQ-SEM04-VIS-01: Diseñar interfaces de formularios con validación visual reactiva mostrando mensajes de error dinámicos bajo campos de texto y control de habilitación de botones.
+- [x] REQ-SEM04-VIS-02: Aplicar directrices técnicas de accesibilidad móvil asegurando descripciones de contenido para lectores de pantalla y áreas táctiles mínimas reglamentarias.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM04-LOG-01: Administrar adecuadamente los eventos del ciclo de vida de componentes y actividades de Android para prevenir fugas de memoria.
@@ -60,7 +60,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [ ] REQ-SEM04-LOG-03: Implementar validación lógica reactiva evaluando campos obligatorios, estructuras de correo electrónico, números y límites de caracteres.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM04-INF-01: Declarar permisos básicos en el archivo AndroidManifest.xml y gestionar solicitudes dinámicas de permisos en tiempo de ejecución.
+- [x] REQ-SEM04-INF-01: Declarar permisos básicos en el archivo AndroidManifest.xml y gestionar solicitudes dinámicas de permisos en tiempo de ejecución.
 - [ ] REQ-SEM04-INF-02: Implementar medidas de eficiencia energética reduciendo la ejecución de tareas redundantes en segundo plano.
 
 ---
@@ -68,7 +68,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 5: Persistencia Local con DataStore y Room
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM05-VIS-01: Construir pantallas de listado y formularios de captura vinculados a la visualización de datos almacenados localmente.
+- [x] REQ-SEM05-VIS-01: Construir pantallas de listado y formularios de captura vinculados a la visualización de datos almacenados localmente.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM05-LOG-01: Implementar interfaces Data Access Object con métodos para inserción, consulta, actualización y eliminación de registros.
@@ -85,7 +85,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 
 ### Capa Visual y Experiencia de Usuario
 - [ ] REQ-SEM06-VIS-01: Vincular las pantallas de Jetpack Compose al estado inmutable expuesto por el ViewModel mediante collectAsStateWithLifecycle.
-- [ ] REQ-SEM06-VIS-02: Renderizar de forma condicional vistas de carga, vistas de contenido, vistas de error con botón de reintento y vistas para datos vacíos.
+- [x] REQ-SEM06-VIS-02: Renderizar de forma condicional vistas de carga, vistas de contenido, vistas de error con botón de reintento y vistas para datos vacíos.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM06-LOG-01: Implementar formalmente el patrón arquitectónico Model View ViewModel separando la interfaz de la lógica de negocio y del acceso a datos.
@@ -101,7 +101,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 7: Fundamentos de Servicios Web y Contratos REST
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM07-VIS-01: Diseñar componentes visuales preparados para el consumo y despliegue de catálogos de datos remotos.
+- [x] REQ-SEM07-VIS-01: Diseñar componentes visuales preparados para el consumo y despliegue de catálogos de datos remotos.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM07-LOG-01: Diseñar el contrato de la API REST especificando rutas de endpoints, métodos HTTP, cabeceras y estructuras de carga útil.
@@ -116,7 +116,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 8: Consumo de APIs REST con Retrofit y Corrutinas
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM08-VIS-01: Diseñar componentes visuales de retroalimentación de red con indicadores de progreso, barras de estado y avisos de pérdida de conectividad.
+- [x] REQ-SEM08-VIS-01: Diseñar componentes visuales de retroalimentación de red con indicadores de progreso, barras de estado y avisos de pérdida de conectividad.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM08-LOG-01: Integrar el cliente HTTP Retrofit versión 2 configurado con el motor OkHttp para llamadas a servicios web.
@@ -133,8 +133,8 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 9: Integración de la Suite Firebase
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM09-VIS-01: Construir pantallas de autenticación para inicio de sesión, registro de nuevos usuarios y recuperación de credenciales.
-- [ ] REQ-SEM09-VIS-02: Diseñar selectores visuales de archivos e imágenes con barras de progreso de carga y descarga en la interfaz.
+- [x] REQ-SEM09-VIS-01: Construir pantallas de autenticación para inicio de sesión, registro de nuevos usuarios y recuperación de credenciales.
+- [x] REQ-SEM09-VIS-02: Diseñar selectores visuales de archivos e imágenes con barras de progreso de carga y descarga en la interfaz.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM09-LOG-01: Implementar Firebase Authentication para registro de cuentas, validación segura de accesos y persistencia de tokens de sesión.
@@ -167,7 +167,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 11: Integración de Módulos, Pruebas y Transición a Flutter
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM11-VIS-01: Integrar todas las vistas de la aplicación en una experiencia unificada con navegación fluida y sin bloqueos de la interfaz.
+- [x] REQ-SEM11-VIS-01: Integrar todas las vistas de la aplicación en una experiencia unificada con navegación fluida y sin bloqueos de la interfaz.
 
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM11-LOG-01: Unificar la interacción entre almacenamiento Room, cliente Retrofit, base documental Firestore y geolocalización.
