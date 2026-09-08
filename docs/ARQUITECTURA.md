@@ -203,3 +203,77 @@ flowchart TD
     ReviewProcess -- Aprobado (Approved) --> MergeReady["PR listo para Merge"]
     MergeReady --> SquashMerge["Merge a rama main"]
 ```
+
+---
+
+## 6. Arquitectura de Integración con el Backend FoodJet (API REST y PostgreSQL)
+El sistema móvil se conecta directamente con los microservicios y base de datos relacional de FoodJet, permitiendo autenticación con JWT Bearer tokens, catálogo en tiempo real con soporte de descuento para estudiantes y ciclo de vida de pedidos. Para la especificación detallada de endpoints, configuración de red local y DTOs, consultar el documento técnico:
+
+👉 **[Guía Técnica de Integración Backend](INTEGRACION_BACKEND_FOODJET.md)**
+
+- **Archivo Fuente:** [`mermaid diagramas/06_integracion_backend_foodjet_api.mmd`](../mermaid%20diagramas/06_integracion_backend_foodjet_api.mmd)
+- **Vector SVG:** [`mermaid diagramas/06_integracion_backend_foodjet_api.svg`](../mermaid%20diagramas/06_integracion_backend_foodjet_api.svg)
+
+```mermaid
+flowchart TD
+    subgraph AndroidApp ["Dispositivo Móvil Android (Emulador / Físico)"]
+        subgraph Presentation ["Capa de Presentación"]
+            UI["Pantallas Jetpack Compose\n(Home, Cart, Orders, Auth)"]
+            VM["ViewModels (HomeVM, AuthVM, OrderVM)\ncollectAsStateWithLifecycle()"]
+        end
+
+        subgraph Repositories ["Capa de Repositorios (Única Fuente de Verdad)"]
+            ProductRepo["ProductRepositoryImpl"]
+            UserRepo["UserRepositoryImpl"]
+            OrderRepo["OrderRepositoryImpl"]
+        end
+
+        subgraph LocalPersistence ["Persistencia Local"]
+            RoomDB[("Room Database (SQLite)\nCaché Offline de Productos\nREQ-SEM05-INF-02")]
+            DataStore[("DataStore Preferences\nJWT Token & Sesión\nREQ-SEM05-INF-01")]
+        end
+
+        subgraph NetworkClient ["Cliente de Red (Retrofit 2 + OkHttp)"]
+            AuthInterceptor["AuthInterceptor\n(Inyecta 'Authorization: Bearer token')\nREQ-SEM08-INF-01"]
+            OkHttpClient["OkHttpClient\n(Timeouts + HttpLoggingInterceptor)"]
+            RetrofitAPI["FoodJetApiService\n(Endpoints Suspendidos en Dispatchers.IO)\nREQ-SEM08-LOG-01 / REQ-SEM08-LOG-02"]
+        end
+    end
+
+    subgraph Connectivity ["Capa de Conectividad y Seguridad"]
+        CleartextPerm["AndroidManifest.xml\nandroid:usesCleartextTraffic='true'"]
+        BaseUrl["Base URL:\nEmulador: http://10.0.2.2:3000/api/\nDispositivo LAN: http://192.168.x.x:3000/api/"]
+    end
+
+    subgraph HostBackend ["Backend Local FoodJet (PC Host)"]
+        ExpressRouter["Express API Router\n(/api/auth, /api/products, /api/orders)"]
+        AuthMid["authMiddleware\n(Verificación Bearer JWT)"]
+        Controllers["Controladores\n(authController, productController, orderController)"]
+        PrismaORM["Prisma Client ORM"]
+        PostgresDB[("PostgreSQL Database (Docker)\nUsuarios, Productos, Pedidos Reales")]
+    end
+
+    UI --> VM
+    VM --> Repositories
+    ProductRepo --> RoomDB
+    ProductRepo --> RetrofitAPI
+    UserRepo --> DataStore
+    UserRepo --> RetrofitAPI
+    OrderRepo --> RetrofitAPI
+
+    DataStore -. Lee Token .-> AuthInterceptor
+    AuthInterceptor --> OkHttpClient
+    OkHttpClient --> RetrofitAPI
+
+    RetrofitAPI -. "Petición HTTP JSON" .-> BaseUrl
+    BaseUrl -. "Atraviesa NAT / Puente de Red" .-> ExpressRouter
+
+    ExpressRouter --> AuthMid
+    AuthMid --> Controllers
+    Controllers --> PrismaORM
+    PrismaORM --> PostgresDB
+    PrismaORM -. "Retorna Datos Reales" .-> Controllers
+    Controllers -. "JSON Response (snake_case)" .-> RetrofitAPI
+    RetrofitAPI -. "DTO Mapper" .-> ProductRepo & UserRepo & OrderRepo
+```
+
