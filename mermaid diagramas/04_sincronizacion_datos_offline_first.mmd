@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor User as Usuario
+    participant UI as Composable UI
+    participant VM as HomeViewModel
+    participant Repo as ProductRepository
+    participant DB as Room SQLite Local
+    participant Remote as REST API / Cloud Firestore
+
+    User->>UI: Abre pantalla de Catálogo
+    UI->>VM: loadProducts()
+    VM->>Repo: getProductsFlow()
+    Repo->>DB: queryAllProducts()
+    DB-->>Repo: Emite catálogo almacenado localmente
+    Repo-->>VM: Emite UiState.Success(cachedProducts)
+    VM-->>UI: Renderiza catálogo instantáneamente (Zero Delay)
+
+    rect rgb(240, 248, 255)
+        Note over Repo,Remote: Tarea en segundo plano con Dispatchers.IO
+        Repo->>Remote: fetchRemoteCatalog()
+        alt Conexión Exitosa (HTTP 200)
+            Remote-->>Repo: Lista actualizada de productos
+            Repo->>DB: upsertProducts(updatedList)
+            DB-->>Repo: Dispara nueva emisión en Flow
+            Repo-->>VM: Emite UiState.Success(updatedList)
+            VM-->>UI: Recompone lista suavemente con datos frescos
+        else Falla de Red / Sin Conexión
+            Remote-->>Repo: Timeout / IOException
+            Repo-->>VM: Emite evento de estado Offline
+            VM-->>UI: Muestra aviso no intrusivo 'Modo sin conexión'
+        end
+    end

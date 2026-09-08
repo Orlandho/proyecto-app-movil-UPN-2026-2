@@ -1,0 +1,20 @@
+flowchart TD
+    Dev["Desarrollador / Contribuidor"] --> Commit["Commit y Push a rama feature/..."]
+    Commit --> CreatePR["Abre Pull Request hacia main"]
+    
+    CreatePR --> Engine["GitHub CODEOWNERS Engine"]
+    Engine --> CheckRules["Evalúa rutas modificadas contra .github/CODEOWNERS"]
+    CheckRules --> Assign["Asigna obligatoriamente a @Orlandho como Revisor"]
+    
+    Assign --> Checks["Ejecución de Verificaciones Automatizadas (Gradle Build / Tests)"]
+    
+    Checks -- Falla --> DevFix["Desarrollador corrige errores"]
+    DevFix --> Commit
+    
+    Checks -- Exitoso --> ReviewProcess{"Revisión de Código por @Orlandho"}
+    
+    ReviewProcess -- Solicita Cambios --> Feedback["Feedback técnico en el PR"]
+    Feedback --> DevFix
+    
+    ReviewProcess -- Aprobado (Approved) --> MergeReady["PR listo para Merge"]
+    MergeReady --> SquashMerge["Merge a rama main"]

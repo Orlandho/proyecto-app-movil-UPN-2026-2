@@ -1,0 +1,26 @@
+flowchart TD
+    AppLaunch(["Apertura de la Aplicación"]) --> Splash["Pantalla Splash / Carga Inicial"]
+    Splash --> AuthCheck{¿Sesión Activa?}
+
+    AuthCheck -- No --> GuestView["Modo Invitado / Acceso Público"]
+    AuthCheck -- Sí --> UserView["Sesión Autenticada (Estudiante / Cliente)"]
+
+    GuestView & UserView --> MainScaffold["Scaffold Principal (FoodJetApp)"]
+
+    subgraph TopAndBottomNavigation ["Barras de Navegación"]
+        MainScaffold --> TopBar["FoodJetTopBar (Perfil, Carrito, Favoritos)"]
+        MainScaffold --> BottomBar["FoodJetBottomBar (Home, Menú, Pedidos, Favoritos)"]
+    end
+
+    TopBar -->|Click Carrito| CartSheet["CartSheet (Modal Bottom Sheet)"]
+    TopBar -->|Click Perfil| ProfileDecision{¿Autenticado?}
+    ProfileDecision -- Sí --> AccountDialog["Diálogo Mi Cuenta"]
+    ProfileDecision -- No --> LoginModal["Modal Login / Registro"]
+
+    BottomBar -->|Ruta home / menu| HomeScreen["HomeScreen (Promos, Catálogo, Filtros)"]
+    BottomBar -->|Ruta favorites| FavScreen["FavoritesScreen (Listado de Favoritos)"]
+    BottomBar -->|Ruta orders| OrdersScreen["OrderHistoryScreen (Historial de Pedidos)"]
+    BottomBar -->|Ruta admin| AdminScreen["AdminDashboardScreen (Panel de Gestión)"]
+
+    CartSheet -->|Continuar Compra| Checkout["CheckoutScreen (Entrega, Método de Pago)"]
+    Checkout -->|Confirmar Pedido| Tracking["TrackingScreen (Monitoreo en Tiempo Real)"]

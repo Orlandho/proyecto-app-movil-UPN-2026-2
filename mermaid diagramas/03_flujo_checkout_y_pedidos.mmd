@@ -1,0 +1,25 @@
+flowchart TD
+    StartCart(["Artículos agregados al Carrito"]) --> OpenCart["Apertura de CartSheet"]
+    OpenCart --> ReviewItems["Revisión de Cantidades y Subtotal"]
+    
+    ReviewItems --> ApplyCoupon{¿Ingresó Cupón?}
+    ApplyCoupon -- Sí --> ValidateCoupon["Validar Cupón de Descuento"]
+    ApplyCoupon -- No --> StudentCheck
+    
+    ValidateCoupon --> StudentCheck{¿Usuario es Estudiante UPN?}
+    StudentCheck -- Sí --> ApplyStudentDiscount["Aplica Descuento Estudiantil"]
+    StudentCheck -- No --> CalculateTotal["Cálculo de Total Final"]
+    ApplyStudentDiscount --> CalculateTotal
+
+    CalculateTotal --> ProceedCheckout["Navegar a CheckoutScreen"]
+    ProceedCheckout --> SelectDelivery["Seleccionar Tipo de Entrega (Delivery / Retiro)"]
+    SelectDelivery --> SelectPayment["Seleccionar Método de Pago (Yape, Plin, Tarjeta, Efectivo)"]
+    
+    SelectPayment --> ValidateForm{¿Campos Válidos?}
+    ValidateForm -- No --> ShowFormErrors["Mostrar Errores Reactivos"]
+    ShowFormErrors --> SelectPayment
+    
+    ValidateForm -- Sí --> CreateOrder["Generar Registro de Pedido (OrderRecord)"]
+    CreateOrder --> SaveLocal["Persistir en Repositorio Local"]
+    SaveLocal --> SyncRemote["Enviar Orden a Servidor / Firestore"]
+    SyncRemote --> OpenTracking["Navegar a TrackingScreen con Número de Orden"]

@@ -1,0 +1,31 @@
+# ==============================================================================
+# PROYECTO APP MOVIL UPN 2026-2 - GITHUB CODEOWNERS
+# Repositorio: Orlandho/proyecto-app-movil-UPN-2026-2
+# Propietario principal: @Orlandho
+# ==============================================================================
+
+# Propietario global y revisor por defecto de cualquier archivo
+* @Orlandho
+
+# Configuración de automatización, CI/CD y workflows de GitHub
+.github/                                 @Orlandho
+
+# Configuración de compilación, plugins y dependencias Gradle/Kotlin
+gradle/                                  @Orlandho
+*.gradle.kts                             @Orlandho
+gradle.properties                        @Orlandho
+libs.versions.toml                       @Orlandho
+
+# Código fuente de la aplicación nativa Android (Jetpack Compose)
+app/src/                                 @Orlandho
+app/build.gradle.kts                     @Orlandho
+app/proguard-rules.pro                   @Orlandho
+
+# Módulo multiplataforma Flutter (Dart)
+flutter_app/                             @Orlandho
+pubspec.yaml                             @Orlandho
+
+# Documentación de requerimientos técnicos y planeación semanal
+*.md                                     @Orlandho
+AGENTS.md                                @Orlandho
+docs/                                    @Orlandho

@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph UI ["Capa Visual (Jetpack Compose & Material 3)"]
+        Screens["Pantallas Composables
+(HomeScreen, FavoritesScreen, CartSheet, etc.)"]
+        Collector["collectAsStateWithLifecycle()"]
+    end
+
+    subgraph Presentation ["Lógica de Presentación (ViewModels)"]
+        HomeVM["HomeViewModel"]
+        CartVM["CartViewModel"]
+        OrderVM["OrderViewModel"]
+        AuthVM["AuthViewModel"]
+        
+        StateFlows["Estados Inmutables
+(UiState<T>, StateFlow)"]
+        SideEffects["Efectos Únicos
+(SharedFlow / Snackbar)"]
+    end
+
+    subgraph DomainData ["Capa de Negocio y Repositorios"]
+        ProductRepo["ProductRepository"]
+        OrderRepo["OrderRepository"]
+        UserRepo["UserRepository"]
+    end
+
+    subgraph DataSources ["Fuentes de Datos Locales y Remotas"]
+        RoomDB[("Room SQLite DB
+(DAOs & Flow)")]
+        DataStore[("DataStore
+(Preferencias de Usuario)")]
+        RetrofitClient["Retrofit 2 REST Client
+(Dispatchers.IO)"]
+        FirebaseServices["Firebase Suite
+(Auth, Firestore, Storage)"]
+    end
+
+    Screens -->|Eventos de Usuario / Intents| HomeVM & CartVM & OrderVM & AuthVM
+    HomeVM & CartVM & OrderVM & AuthVM --> StateFlows & SideEffects
+    StateFlows --> Collector
+    Collector --> Screens
+
+    HomeVM --> ProductRepo
+    CartVM --> ProductRepo & OrderRepo
+    OrderVM --> OrderRepo
+    AuthVM --> UserRepo
+
+    ProductRepo --> RoomDB & RetrofitClient
+    OrderRepo --> RoomDB & FirebaseServices
+    UserRepo --> DataStore & FirebaseServices
