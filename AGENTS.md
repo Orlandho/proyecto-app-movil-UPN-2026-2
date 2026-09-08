@@ -57,7 +57,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ### Lógica de Negocio y Servicios de Arquitectura
 - [ ] REQ-SEM04-LOG-01: Administrar adecuadamente los eventos del ciclo de vida de componentes y actividades de Android para prevenir fugas de memoria.
 - [ ] REQ-SEM04-LOG-02: Implementar Intents explícitos para navegación interna e Intents implícitos para interactuar con aplicaciones del sistema como cámara o navegador web.
-- [ ] REQ-SEM04-LOG-03: Implementar validación lógica reactiva evaluando campos obligatorios, estructuras de correo electrónico, números y límites de caracteres.
+- [x] REQ-SEM04-LOG-03: Implementar validación lógica reactiva evaluando campos obligatorios, estructuras de correo electrónico, números y límites de caracteres.
 
 ### Persistencia, Infraestructura y Configuración
 - [x] REQ-SEM04-INF-01: Declarar permisos básicos en el archivo AndroidManifest.xml y gestionar solicitudes dinámicas de permisos en tiempo de ejecución.
@@ -71,13 +71,13 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM05-VIS-01: Construir pantallas de listado y formularios de captura vinculados a la visualización de datos almacenados localmente.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM05-LOG-01: Implementar interfaces Data Access Object con métodos para inserción, consulta, actualización y eliminación de registros.
-- [ ] REQ-SEM05-LOG-02: Exponer consultas reactivas desde el Data Access Object utilizando flujos observables mediante el tipo Flow de corrutinas de Kotlin.
+- [x] REQ-SEM05-LOG-01: Implementar interfaces Data Access Object con métodos para inserción, consulta, actualización y eliminación de registros.
+- [x] REQ-SEM05-LOG-02: Exponer consultas reactivas desde el Data Access Object utilizando flujos observables mediante el tipo Flow de corrutinas de Kotlin.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM05-INF-01: Implementar Jetpack DataStore Preferences para la persistencia asíncrona de configuraciones y preferencias del usuario.
-- [ ] REQ-SEM05-INF-02: Implementar la base de datos relacional local con Room ORM sobre el motor SQLite con entidades, llaves primarias autogeneradas e índices.
-- [ ] REQ-SEM05-INF-03: Configurar migraciones de base de datos automáticas y controladas para prevenir la pérdida de datos ante cambios en las tablas.
+- [x] REQ-SEM05-INF-01: Implementar Jetpack DataStore Preferences para la persistencia asíncrona de configuraciones y preferencias del usuario.
+- [x] REQ-SEM05-INF-02: Implementar la base de datos relacional local con Room ORM sobre el motor SQLite con entidades, llaves primarias autogeneradas e índices.
+- [x] REQ-SEM05-INF-03: Configurar migraciones de base de datos automáticas y controladas para prevenir la pérdida de datos ante cambios en las tablas.
 
 ---
 
@@ -94,7 +94,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM06-LOG-04: Modelar el estado de la pantalla mediante clases selladas de Kotlin y exponerlo usando StateFlow y SharedFlow para eventos únicos.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM06-INF-01: Ejecutar pruebas técnicas de verificación sobre la persistencia local en Room y la estabilidad del flujo MVVM para el hito evaluativo T1.
+- [x] REQ-SEM06-INF-01: Ejecutar pruebas técnicas de verificación sobre la persistencia local en Room y la estabilidad del flujo MVVM para el hito evaluativo T1.
 
 ---
 
@@ -104,12 +104,12 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM07-VIS-01: Diseñar componentes visuales preparados para el consumo y despliegue de catálogos de datos remotos.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM07-LOG-01: Diseñar el contrato de la API REST especificando rutas de endpoints, métodos HTTP, cabeceras y estructuras de carga útil.
-- [ ] REQ-SEM07-LOG-02: Definir clases de datos inmutables fuertemente tipadas para serialización y deserialización sin pérdida de precisión.
-- [ ] REQ-SEM07-LOG-03: Aplicar políticas de consumo responsable de datos de red reduciendo campos innecesarios en las peticiones.
+- [x] REQ-SEM07-LOG-01: Diseñar el contrato de la API REST especificando rutas de endpoints, métodos HTTP, cabeceras y estructuras de carga útil.
+- [x] REQ-SEM07-LOG-02: Definir clases de datos inmutables fuertemente tipadas para serialización y deserialización sin pérdida de precisión.
+- [x] REQ-SEM07-LOG-03: Aplicar políticas de consumo responsable de datos de red reduciendo campos innecesarios en las peticiones.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM07-INF-01: Configurar biblioteca de serialización JSON como Kotlinx Serialization o Gson en el entorno de compilación.
+- [x] REQ-SEM07-INF-01: Configurar biblioteca de serialización JSON como Kotlinx Serialization o Gson en el entorno de compilación.
 
 ---
 
@@ -119,14 +119,14 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM08-VIS-01: Diseñar componentes visuales de retroalimentación de red con indicadores de progreso, barras de estado y avisos de pérdida de conectividad.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM08-LOG-01: Integrar el cliente HTTP Retrofit versión 2 configurado con el motor OkHttp para llamadas a servicios web.
-- [ ] REQ-SEM08-LOG-02: Diseñar la interfaz de servicio de Retrofit con métodos GET, POST, PUT y DELETE vinculados a funciones de suspensión de corrutinas.
-- [ ] REQ-SEM08-LOG-03: Ejecutar llamadas de red en segundo plano utilizando el despachador de entrada y salida Dispatchers.IO.
-- [ ] REQ-SEM08-LOG-04: Implementar manejo estructurado de respuestas capturando códigos de éxito doscientos, errores de cliente cuatrocientos y errores de servidor quinientos.
+- [x] REQ-SEM08-LOG-01: Integrar el cliente HTTP Retrofit versión 2 configurado con el motor OkHttp para llamadas a servicios web.
+- [x] REQ-SEM08-LOG-02: Diseñar la interfaz de servicio de Retrofit con métodos GET, POST, PUT y DELETE vinculados a funciones de suspensión de corrutinas.
+- [x] REQ-SEM08-LOG-03: Ejecutar llamadas de red en segundo plano utilizando el despachador de entrada y salida Dispatchers.IO.
+- [x] REQ-SEM08-LOG-04: Implementar manejo estructurado de respuestas capturando códigos de éxito doscientos, errores de cliente cuatrocientos y errores de servidor quinientos.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM08-INF-01: Implementar interceptores de OkHttp para registro controlado de peticiones, inyección de encabezados de autorización y tiempos de espera.
-- [ ] REQ-SEM08-INF-02: Diseñar mecanismo de almacenamiento en caché local combinando Room y Retrofit para permitir lectura de datos esenciales sin conexión a internet.
+- [x] REQ-SEM08-INF-01: Implementar interceptores de OkHttp para registro controlado de peticiones, inyección de encabezados de autorización y tiempos de espera.
+- [x] REQ-SEM08-INF-02: Diseñar mecanismo de almacenamiento en caché local combinando Room y Retrofit para permitir lectura de datos esenciales sin conexión a internet.
 
 ---
 

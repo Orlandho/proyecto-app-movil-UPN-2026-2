@@ -3,10 +3,10 @@ package com.example.foodjeetapp.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodjeetapp.data.common.UiState
+import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.PromotionSlide
 import com.example.foodjeetapp.data.repository.ProductRepository
-import com.example.foodjeetapp.data.repository.ProductRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * Cumple con REQ-SEM06-LOG-01, REQ-SEM06-LOG-02 y REQ-SEM06-LOG-04.
  */
 class HomeViewModel(
-    private val productRepository: ProductRepository = ProductRepositoryImpl()
+    private val productRepository: ProductRepository = ServiceLocator.productRepository
 ) : ViewModel() {
 
     private val _productsState = MutableStateFlow<UiState<List<ProductItem>>>(UiState.Loading)
