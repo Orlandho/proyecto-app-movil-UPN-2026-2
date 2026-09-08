@@ -32,11 +32,11 @@ import kotlinx.coroutines.delay
 @Composable
 fun LoginDialog(
     onDismiss: () -> Unit,
-    onLoginSuccess: (email: String) -> Unit,
+    onLoginSuccess: (email: String, password: String) -> Unit,
     onSwitchToRegister: () -> Unit
 ) {
     var email by remember { mutableStateOf("cliente1@mail.com") }
-    var password by remember { mutableStateOf("123456") }
+    var password by remember { mutableStateOf("Cliente123!") }
     val isFormValid = email.contains("@") && password.length >= 4
 
     Dialog(onDismissRequest = onDismiss) {
@@ -85,7 +85,7 @@ fun LoginDialog(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = { onLoginSuccess(email) },
+                    onClick = { onLoginSuccess(email, password) },
                     enabled = isFormValid,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -109,7 +109,7 @@ fun LoginDialog(
 @Composable
 fun RegisterDialog(
     onDismiss: () -> Unit,
-    onRegisterSuccess: (name: String, email: String, phone: String) -> Unit,
+    onRegisterSuccess: (name: String, email: String, phone: String, password: String) -> Unit,
     onSwitchToLogin: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
@@ -188,7 +188,7 @@ fun RegisterDialog(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Button(
-                    onClick = { onRegisterSuccess(name, email, phone) },
+                    onClick = { onRegisterSuccess(name, email, phone, password) },
                     enabled = isFormValid,
                     modifier = Modifier
                         .fillMaxWidth()

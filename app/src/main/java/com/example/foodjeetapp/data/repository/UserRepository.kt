@@ -1,10 +1,15 @@
 package com.example.foodjeetapp.data.repository
 
+import com.example.foodjeetapp.data.local.SessionDataStore
 import com.example.foodjeetapp.data.model.UserProfile
+import com.example.foodjeetapp.data.remote.api.FoodJetApiService
+import com.example.foodjeetapp.data.remote.dto.LoginRequestDto
+import com.example.foodjeetapp.data.remote.dto.RegisterRequestDto
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 
 /**
  * Contrato de repositorio para autenticación y perfil de usuario de FoodJet.
@@ -21,51 +26,94 @@ interface UserRepository {
 
 /**
  * Implementación de producción para el repositorio de usuario y autenticación.
- * Mantiene la sesión en memoria para la interfaz actual y declara los puntos de conexión a Firebase y DataStore.
+ * Integra Retrofit 2 para autenticación contra el backend Node.js y DataStore para persistencia de sesión.
+ * Cumple con REQ-SEM05-INF-01, REQ-SEM08-LOG-01, REQ-SEM08-LOG-03 y REQ-SEM08-LOG-04.
  */
-class UserRepositoryImpl : UserRepository {
+class UserRepositoryImpl(
+    private val apiService: FoodJetApiService,
+    private val sessionDataStore: SessionDataStore,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : UserRepository {
 
-    // TODO: (REQ-SEM09-LOG-01) Integrar Firebase Authentication para registro, inicio de sesión seguro y gestión de tokens.
-    // TODO: (REQ-SEM05-INF-01) Implementar Jetpack DataStore Preferences para la persistencia asíncrona de credenciales y estado del usuario.
-    // TODO: (REQ-SEM09-INF-02) Validar reglas de seguridad en Firebase basadas en el identificador único UID del usuario.
+    override fun getCurrentUserStream(): Flow<UserProfile?> = sessionDataStore.userProfileFlow
 
-    private val _currentUserFlow = MutableStateFlow<UserProfile?>(
-        UserProfile(
-            name = "Orlando Dorival",
-            email = "orlando@foodjet.com",
-            phone = "987654321",
-            isStudent = true,
-            isAdmin = false
-        )
-    )
+    override suspend fun getCurrentUser(): UserProfile? = sessionDataStore.userProfileFlow.firstOrNull()
 
-    override fun getCurrentUserStream(): Flow<UserProfile?> = _currentUserFlow.asStateFlow()
-
-    override suspend fun getCurrentUser(): UserProfile? = _currentUserFlow.value
-
-    override suspend fun login(email: String, password: String): Result<UserProfile> {
-        // TODO: Invocar FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
-        val user = UserProfile(name = email.substringBefore("@"), email = email, phone = "987654321", isStudent = true)
-        _currentUserFlow.value = user
-        return Result.success(user)
+    override suspend fun login(email: String, password: String): Result<UserProfile> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.login(LoginRequestDto(email = email.trim(), password = password))
+            if (response.isSuccessful && response.body() != null) {
+                val data = response.body()!!
+                // Persistir sesión y token JWT en Jetpack DataStore (REQ-SEM05-INF-01)
+                sessionDataStore.saveSession(
+                    token = data.token,
+                    userId = data.user.id,
+                    name = data.user.nombre,
+                    email = data.user.email,
+                    phone = data.user.telefono,
+                    isStudent = data.user.esEstudiante ?: false,
+                    isAdmin = data.user.rol.equals("admin", ignoreCase = true)
+                )
+                Result.success(data.user.toDomain())
+            } else {
+                val errorMsg = if (response.code() == 401) {
+                    "Credenciales incorrectas. Verifica tu correo y contraseña."
+                } else {
+                    "Error al iniciar sesión (${response.code()})"
+                }
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de conexión al servidor: ${e.localizedMessage}", e))
+        }
     }
 
-    override suspend fun register(name: String, email: String, phone: String, password: String): Result<UserProfile> {
-        // TODO: Invocar FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
-        val user = UserProfile(name = name, email = email, phone = phone, isStudent = false)
-        _currentUserFlow.value = user
-        return Result.success(user)
+    override suspend fun register(
+        name: String,
+        email: String,
+        phone: String,
+        password: String
+    ): Result<UserProfile> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.register(
+                RegisterRequestDto(
+                    nombre = name.trim(),
+                    email = email.trim(),
+                    telefono = phone.trim(),
+                    password = password
+                )
+            )
+            if (response.isSuccessful) {
+                // Iniciar sesión inmediatamente para obtener el token JWT
+                login(email, password)
+            } else {
+                val errorMsg = if (response.code() == 409) {
+                    "El correo ya se encuentra registrado."
+                } else {
+                    "Error al crear la cuenta (${response.code()})"
+                }
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de conexión al servidor: ${e.localizedMessage}", e))
+        }
     }
 
-    override suspend fun updateStudentStatus(isStudent: Boolean): Result<Unit> {
-        // TODO: Persistir nuevo estado de carnet en DataStore Preferences y Firestore
-        _currentUserFlow.update { it?.copy(isStudent = isStudent) }
-        return Result.success(Unit)
+    override suspend fun updateStudentStatus(isStudent: Boolean): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            sessionDataStore.updateStudentStatus(isStudent)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override suspend fun logout(): Result<Unit> {
-        // TODO: Invocar FirebaseAuth.getInstance().signOut() y limpiar DataStore
-        _currentUserFlow.value = null
-        return Result.success(Unit)
+    override suspend fun logout(): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            sessionDataStore.clearSession()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -1,9 +1,14 @@
 package com.example.foodjeetapp.data.repository
 
+import com.example.foodjeetapp.data.local.dao.ProductDao
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.PromotionSlide
+import com.example.foodjeetapp.data.remote.api.FoodJetApiService
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 /**
  * Contrato de repositorio para el catálogo de productos de FoodJet.
@@ -18,37 +23,64 @@ interface ProductRepository {
 
 /**
  * Implementación de producción para el repositorio de productos.
- * Retorna valores por defecto limpios (vacíos) a la espera de la integración del backend y base de datos local.
+ * Integra Retrofit 2 para el consumo REST y Room ORM para la persistencia local offline-first.
+ * Cumple con REQ-SEM08-LOG-01, REQ-SEM08-LOG-03, REQ-SEM08-INF-02 y REQ-SEM05-INF-02.
  */
-class ProductRepositoryImpl : ProductRepository {
+class ProductRepositoryImpl(
+    private val apiService: FoodJetApiService,
+    private val productDao: ProductDao,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ProductRepository {
 
-    // TODO: (REQ-SEM08-LOG-01) Integrar cliente HTTP Retrofit con motor OkHttp para llamadas a servicios web.
-    // TODO: (REQ-SEM08-LOG-02) Inyectar interfaz de servicio Retrofit con endpoints GET/POST/PUT/DELETE suspendidos.
-    // TODO: (REQ-SEM08-LOG-03) Ejecutar llamadas de red en segundo plano utilizando el despachador Dispatchers.IO.
-    // TODO: (REQ-SEM05-INF-02) Inyectar ProductDao de Room ORM para persistencia y sincronización en base de datos SQLite.
-    // TODO: (REQ-SEM08-INF-02) Implementar almacenamiento en caché local combinando Room y Retrofit para modo sin conexión.
-
-    override fun getProductsStream(): Flow<List<ProductItem>> = flow {
-        // Flujo observable reactivo (REQ-SEM05-LOG-02).
-        // En ausencia del backend REST o base de datos local Room, emite una lista vacía real.
-        emit(emptyList())
+    override fun getProductsStream(): Flow<List<ProductItem>> {
+        // Flujo observable desde Room SQLite (REQ-SEM05-LOG-02)
+        return productDao.getAllProductsFlow().map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
-    override suspend fun getProducts(): Result<List<ProductItem>> {
-        // En producción se consumirá el endpoint REST con Retrofit y se persistirá en Room:
-        // val remoteProducts = retrofitService.getProducts()
-        // productDao.insertAll(remoteProducts.toEntityList())
-        // return Result.success(productDao.getAllProducts().toDomainList())
-        return Result.success(emptyList())
+    override suspend fun getProducts(): Result<List<ProductItem>> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getProducts()
+            if (response.isSuccessful && response.body() != null) {
+                val dtos = response.body()!!
+                // Guardar en la base de datos local Room (Caché Offline)
+                productDao.insertAll(dtos.map { it.toEntity() })
+                Result.success(dtos.map { it.toDomain() })
+            } else {
+                // Si la API responde con error, intentamos servir los datos locales de Room
+                val cached = productDao.getAllProducts()
+                if (cached.isNotEmpty()) {
+                    Result.success(cached.map { it.toDomain() })
+                } else {
+                    Result.failure(Exception("Error al cargar productos: ${response.code()} ${response.message()}"))
+                }
+            }
+        } catch (e: Exception) {
+            // Manejo de contingencia offline: si no hay red, leer desde Room SQLite
+            val cached = productDao.getAllProducts()
+            if (cached.isNotEmpty()) {
+                Result.success(cached.map { it.toDomain() })
+            } else {
+                Result.failure(e)
+            }
+        }
     }
 
-    override suspend fun getProductById(id: Int): Result<ProductItem?> {
-        // TODO: Consultar producto por identificador en Room o API REST remota.
-        return Result.success(null)
+    override suspend fun getProductById(id: Int): Result<ProductItem?> = withContext(ioDispatcher) {
+        try {
+            val local = productDao.getProductById(id)
+            if (local != null) {
+                Result.success(local.toDomain())
+            } else {
+                Result.success(null)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override fun getPromotions(): List<PromotionSlide> {
-        // Banners promocionales de la identidad visual FoodJet para el carrusel principal
         return listOf(
             PromotionSlide(
                 id = 1,
