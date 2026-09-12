@@ -1,0 +1,23 @@
+flowchart TD
+    subgraph EventoExterno ["Disparador Externo"]
+        WebRepo["Repositorio Orlandho/Pagina-Foodjet"] -- "repository_dispatch\n(tipo: foodjet-updated)" --> GHWorkflow[".github/workflows/receive-foodjet-sync.yml"]
+    end
+
+    subgraph OrquestacionJules ["Orquestación del Agente Jules"]
+        GHWorkflow --> GHIssue["Creación de Issue GitHub\n(Etiqueta: jules)"]
+        GHWorkflow -.-> DirectAPI["Invocación Directa API\n(JULES_API_KEY)"]
+        GHIssue --> JulesSession["Sesión de Trabajo del Agente Jules\n(Lectura de AGENTS.md)"]
+        DirectAPI -.-> JulesSession
+    end
+
+    subgraph ModuloAppKotlin ["Módulo app (Áreas Permitidas para Jules)"]
+        JulesSession --> UIViews["Vistas y UI Jetpack Compose\n(ui/screens/ & ui/components/)"]
+        JulesSession --> UIViewModels["Lógica de Estado MVVM\n(ui/viewmodel/)"]
+        JulesSession --> UINetwork["Servicios de Red y Repositorios\n(data/remote/ & data/repository/)"]
+    end
+
+    subgraph Protegido ["Zona Protegida (PROHIBIDO MODIFICAR)"]
+        GradleBase["Estructura Gradle Base\n(build.gradle.kts, libs.versions.toml)"]
+    end
+
+    JulesSession -. "Restricción Estricta" .-> GradleBase
