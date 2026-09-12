@@ -1,0 +1,78 @@
+name: "Jules Móvil - 2. Pruebas de Caja Blanca y Unitarias"
+
+on:
+  pull_request:
+    branches: [ main, master, feat/workflow-test-agents ]
+    types: [ opened, synchronize, reopened ]
+  push:
+    branches: [ main, master, feat/workflow-test-agents ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pruebas-unitarias-caja-blanca-movil:
+    name: Pruebas Unitarias y Cobertura de Ramas Móvil con Jules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio móvil (historial completo para git diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Configurar Node.js (Entorno del Agente)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Asignar permisos de ejecución a gradlew
+        run: chmod +x gradlew
+
+      - name: Detectar diferencial de cambios en la App Móvil (git diff)
+        id: git-diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Comparando contra base ref: origin/${{ github.base_ref }}"
+            git fetch origin ${{ github.base_ref }} --depth=1 || true
+            BASE="origin/${{ github.base_ref }}"
+            HEAD="HEAD"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] || [ -z "${{ github.event.before }}" ]; then
+              BASE="HEAD~1"
+            else
+              BASE="${{ github.event.before }}"
+            fi
+            HEAD="${{ github.sha }}"
+          else
+            BASE="HEAD~1"
+            HEAD="HEAD"
+          fi
+
+          echo "Base: $BASE | Head: $HEAD"
+          git diff --name-only "$BASE" "$HEAD" > changed_files.txt || git diff --name-only HEAD~1 HEAD > changed_files.txt || touch changed_files.txt
+          git diff "$BASE" "$HEAD" > diff.patch || git diff HEAD~1 HEAD > diff.patch || touch diff.patch
+          
+          echo "=== Archivos modificados en la App Móvil ==="
+          cat changed_files.txt
+
+      - name: Ejecutar Pruebas Unitarias y Cobertura Móvil con Agente Jules
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          TEST_TYPE: unit
+        run: |
+          node .github/scripts/jules-mobile-agent.js unit
