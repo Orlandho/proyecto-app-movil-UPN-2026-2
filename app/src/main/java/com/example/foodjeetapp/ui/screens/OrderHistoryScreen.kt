@@ -28,6 +28,7 @@ import com.example.foodjeetapp.ui.theme.*
 fun OrderHistoryScreen(
     orders: List<OrderRecord>,
     onLeaveReview: (OrderRecord) -> Unit,
+    onTrackOrder: (OrderRecord) -> Unit = {},
     onBackToMenu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -81,7 +82,11 @@ fun OrderHistoryScreen(
             }
         } else {
             items(orders) { order ->
-                OrderCard(order = order, onLeaveReview = { onLeaveReview(order) })
+                OrderCard(
+                    order = order,
+                    onLeaveReview = { onLeaveReview(order) },
+                    onTrackOrder = { onTrackOrder(order) }
+                )
             }
         }
     }
@@ -90,10 +95,12 @@ fun OrderHistoryScreen(
 @Composable
 private fun OrderCard(
     order: OrderRecord,
-    onLeaveReview: () -> Unit
+    onLeaveReview: () -> Unit,
+    onTrackOrder: () -> Unit
 ) {
     val (statusColor, statusBg, statusIcon) = when (order.estado) {
         OrderStatus.PENDIENTE -> Triple(Color(0xFF856404), FoodJetWarningContainer, Icons.Default.HourglassEmpty)
+        OrderStatus.CONFIRMADO -> Triple(Color(0xFF0C5460), Color(0xFFD1ECF1), Icons.Default.CheckCircle)
         OrderStatus.EN_PREPARACION -> Triple(Color(0xFF0C5460), Color(0xFFD1ECF1), Icons.Default.SoupKitchen)
         OrderStatus.EN_CAMINO -> Triple(Color(0xFF004085), Color(0xFFCCE5FF), Icons.AutoMirrored.Filled.DirectionsBike)
         OrderStatus.ENTREGADO -> Triple(Color(0xFF155724), FoodJetSuccessContainer, Icons.Default.CheckCircle)
@@ -205,6 +212,21 @@ private fun OrderCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text("S/ ${String.format("%.2f", order.total)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = FoodJetPrimaryDark)
+            }
+
+            // Botón de Seguimiento en Tiempo Real si el pedido está activo
+            if (!order.estado.isTerminal) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = onTrackOrder,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Rastrear Pedido en Vivo", fontWeight = FontWeight.Bold)
+                }
             }
 
             // Sección de Reseñas

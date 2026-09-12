@@ -52,3 +52,8 @@ data class RegisterResponseDto(
 data class UserProfileResponseDto(
     @SerializedName("user") val user: UserDto
 )
+
+data class VerifyStudentResponseDto(
+    @SerializedName("message") val message: String?,
+    @SerializedName("es_estudiante") val esEstudiante: Boolean?
+)

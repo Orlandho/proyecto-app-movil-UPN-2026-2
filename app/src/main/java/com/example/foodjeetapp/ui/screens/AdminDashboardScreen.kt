@@ -3,16 +3,16 @@ package com.example.foodjeetapp.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.foodjeetapp.data.common.UiState
+import com.example.foodjeetapp.data.remote.dto.AdminOrderDto
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
@@ -27,16 +29,28 @@ import com.example.foodjeetapp.ui.theme.FoodJetSuccess
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
+    ordersState: UiState<List<AdminOrderDto>> = UiState.Empty,
+    onAdvanceOrderStatus: (orderId: Int, nextStatus: String) -> Unit = { _, _ -> },
+    onRefresh: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(Unit) {
+        onRefresh()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Panel de Administración", fontWeight = FontWeight.Bold) },
+                title = { Text("Panel de Operaciones Admin", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Recargar órdenes")
                     }
                 }
             )
@@ -88,6 +102,103 @@ fun AdminDashboardScreen(
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            // Sección de Gestión de Pedidos en Vivo (Homólogo al panel web de operaciones)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, tint = FoodJetPrimaryDark)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Pedidos del Sistema", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        when (ordersState) {
+                            is UiState.Loading -> {
+                                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(modifier = Modifier.size(28.dp), color = FoodJetPrimary)
+                                }
+                            }
+                            is UiState.Empty -> {
+                                Text(
+                                    text = "No hay pedidos registrados en el sistema.",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            is UiState.Error -> {
+                                Text(
+                                    text = "Error: ${(ordersState as UiState.Error).message}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            is UiState.Success -> {
+                                val orders = (ordersState as UiState.Success<List<AdminOrderDto>>).data
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    orders.take(10).forEach { o ->
+                                        val normState = o.estado.lowercase().trim()
+                                        val nextState = when (normState) {
+                                            "pendiente" -> "confirmado"
+                                            "confirmado" -> "en_preparacion"
+                                            "en_preparacion" -> "en_camino"
+                                            "en_camino" -> "entregado"
+                                            else -> null
+                                        }
+
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(10.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text("Pedido #${o.id} - ${o.cliente ?: "Cliente"}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    Text("Total: S/ ${String.format("%.2f", o.total)} | Estado: ${o.estado}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                if (nextState != null) {
+                                                    Button(
+                                                        onClick = { onAdvanceOrderStatus(o.id, nextState) },
+                                                        shape = RoundedCornerShape(14.dp),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black),
+                                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                        modifier = Modifier.height(32.dp)
+                                                    ) {
+                                                        Text("Avanzar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                } else {
+                                                    Text(
+                                                        text = if (normState == "entregado") "Entregado" else "Cerrado",
+                                                        fontSize = 11.sp,
+                                                        color = FoodJetSuccess,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

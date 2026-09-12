@@ -28,8 +28,24 @@ interface FoodJetApiService {
     @GET("orders/my-orders")
     suspend fun getMyOrders(): Response<List<OrderResponseDto>>
 
+    @GET("orders/{id}")
+    suspend fun getOrderById(@Path("id") id: Int): Response<OrderResponseDto>
+
     @POST("orders")
     suspend fun createOrder(@Body body: CreateOrderRequestDto): Response<CreateOrderResponseDto>
+
+    @PUT("orders/{id}/cancel")
+    suspend fun cancelOrder(@Path("id") id: Int): Response<CancelOrderResponseDto>
+
+    // 3.1 Administración de Pedidos (Panel de Operaciones)
+    @GET("orders")
+    suspend fun getAllOrders(): Response<List<AdminOrderDto>>
+
+    @PUT("orders/{id}/status")
+    suspend fun updateOrderStatus(
+        @Path("id") id: Int,
+        @Body body: UpdateOrderStatusRequestDto
+    ): Response<UpdateOrderStatusResponseDto>
 
     // 4. Direcciones de Entrega
     @GET("addresses")
@@ -41,4 +57,15 @@ interface FoodJetApiService {
     // 5. Calificaciones y Reseñas
     @POST("reviews")
     suspend fun createReview(@Body body: CreateReviewRequestDto): Response<CreateReviewResponseDto>
+
+    // 6. Favoritos Sincronizados
+    @GET("favorites")
+    suspend fun getFavorites(): Response<List<ProductDto>>
+
+    @POST("favorites/{productId}/toggle")
+    suspend fun toggleFavorite(@Path("productId") productId: Int): Response<ToggleFavoriteResponseDto>
+
+    // 7. Verificación de Estudiante
+    @POST("users/verify-student")
+    suspend fun verifyStudent(): Response<VerifyStudentResponseDto>
 }

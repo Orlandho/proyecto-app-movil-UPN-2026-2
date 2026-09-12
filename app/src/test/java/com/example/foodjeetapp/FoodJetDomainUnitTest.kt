@@ -55,6 +55,7 @@ class FoodJetDomainUnitTest {
     @Test
     fun testOrderStatusLabelsAndTransitions() {
         assertEquals("Pendiente", OrderStatus.PENDIENTE.label)
+        assertEquals("Confirmado", OrderStatus.CONFIRMADO.label)
         assertEquals("En preparación", OrderStatus.EN_PREPARACION.label)
         assertEquals("En camino", OrderStatus.EN_CAMINO.label)
         assertEquals("Entregado", OrderStatus.ENTREGADO.label)
@@ -62,9 +63,18 @@ class FoodJetDomainUnitTest {
 
         // Verificar exhaustividad de estados
         val allStates = OrderStatus.values()
-        assertEquals(5, allStates.size)
+        assertEquals(6, allStates.size)
         assertTrue(allStates.contains(OrderStatus.PENDIENTE))
+        assertTrue(allStates.contains(OrderStatus.CONFIRMADO))
         assertTrue(allStates.contains(OrderStatus.ENTREGADO))
+
+        // Verificar propiedades terminales y cancelables
+        assertTrue(OrderStatus.ENTREGADO.isTerminal)
+        assertTrue(OrderStatus.CANCELADO.isTerminal)
+        assertFalse(OrderStatus.PENDIENTE.isTerminal)
+        assertTrue(OrderStatus.PENDIENTE.isCancelable)
+        assertTrue(OrderStatus.CONFIRMADO.isCancelable)
+        assertFalse(OrderStatus.EN_PREPARACION.isCancelable)
     }
 
     @Test
@@ -113,5 +123,88 @@ class FoodJetDomainUnitTest {
         val adminUser = defaultUser.copy(isAdmin = true, isStudent = false)
         assertTrue(adminUser.isAdmin)
         assertFalse(adminUser.isStudent)
+    }
+
+    @Test
+    fun testOrderRecordNumericIdParsing() {
+        val order1 = OrderRecord(
+            id = "FJ-105",
+            fecha = "12/09/2026",
+            estado = OrderStatus.CONFIRMADO,
+            items = emptyList(),
+            subtotal = 30.0,
+            impuestos = 5.4,
+            total = 40.4
+        )
+        assertEquals(105, order1.numericId)
+
+        val order2 = OrderRecord(
+            id = "CUSTOM-99",
+            fecha = "12/09/2026",
+            estado = OrderStatus.PENDIENTE,
+            items = emptyList(),
+            subtotal = 20.0,
+            impuestos = 3.6,
+            total = 28.6
+        )
+        assertEquals(0, order2.numericId)
+    }
+
+    @Test
+    fun testOrderDtoToDomainStatusAndTransactionMapping() {
+        val productDto = com.example.foodjeetapp.data.remote.dto.ProductDto(
+            id = 1,
+            restauranteId = 1,
+            nombre = "Hamburguesa Doble",
+            descripcion = "Carne y queso",
+            precio = 20.00,
+            tipoComida = "Hamburguesas",
+            imagenUrl = "/images/burger.jpg",
+            descuentoEstudiante = 10.0,
+            disponibilidad = true,
+            restaurant = null
+        )
+        val itemDetailDto = com.example.foodjeetapp.data.remote.dto.OrderItemDetailDto(
+            id = 1,
+            productId = 1,
+            cantidad = 2,
+            precioUnitario = 20.00,
+            product = productDto
+        )
+        val transactionDto = com.example.foodjeetapp.data.remote.dto.TransactionDto(
+            id = 10,
+            metodoPago = "wallet",
+            monto = 45.00,
+            estadoPago = "completado"
+        )
+        val dto = com.example.foodjeetapp.data.remote.dto.OrderResponseDto(
+            id = 42,
+            userId = 1,
+            restauranteId = 1,
+            direccionEntregaId = 1,
+            total = 45.00,
+            impuestos = 5.40,
+            costoEnvio = 5.00,
+            estado = "confirmado",
+            fecha = "2026-09-12T01:00:00.000Z",
+            restaurant = com.example.foodjeetapp.data.remote.dto.RestaurantDto(
+                nombre = "Burger King",
+                estadoAfiliacion = "activo",
+                qrPago = null,
+                tiempoEntrega = "30 min",
+                calificacionPromedio = 4.5
+            ),
+            review = null,
+            transaction = transactionDto,
+            orderItems = listOf(itemDetailDto)
+        )
+
+        val domain = dto.toDomain()
+        assertEquals("FJ-42", domain.id)
+        assertEquals(42, domain.numericId)
+        assertEquals(OrderStatus.CONFIRMADO, domain.estado)
+        assertEquals("Billetera Digital", domain.paymentMethod)
+        assertEquals(1, domain.items.size)
+        assertEquals("Hamburguesa Doble", domain.items[0].product.nombre)
     }
 }

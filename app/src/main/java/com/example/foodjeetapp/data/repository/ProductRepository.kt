@@ -19,6 +19,8 @@ interface ProductRepository {
     suspend fun getProducts(): Result<List<ProductItem>>
     suspend fun getProductById(id: Int): Result<ProductItem?>
     fun getPromotions(): List<PromotionSlide>
+    suspend fun getFavoriteProductIds(): Result<Set<Int>>
+    suspend fun toggleFavorite(productId: Int): Result<Boolean>
 }
 
 /**
@@ -104,5 +106,32 @@ class ProductRepositoryImpl(
                 buttonText = "Pedir pizza"
             )
         )
+    }
+
+    override suspend fun getFavoriteProductIds(): Result<Set<Int>> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getFavorites()
+            if (response.isSuccessful && response.body() != null) {
+                val ids = response.body()!!.map { it.id }.toSet()
+                Result.success(ids)
+            } else {
+                Result.failure(Exception("Error al consultar favoritos (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun toggleFavorite(productId: Int): Result<Boolean> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.toggleFavorite(productId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.isFavorite)
+            } else {
+                Result.failure(Exception("Error al actualizar favorito (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

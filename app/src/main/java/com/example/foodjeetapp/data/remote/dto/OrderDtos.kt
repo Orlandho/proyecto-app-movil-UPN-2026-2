@@ -46,6 +46,13 @@ data class ReviewDto(
     @SerializedName("comentario") val comentario: String?
 )
 
+data class TransactionDto(
+    @SerializedName("id") val id: Int?,
+    @SerializedName("metodo_pago") val metodoPago: String?,
+    @SerializedName("monto") val monto: Double?,
+    @SerializedName("estado_pago") val estadoPago: String?
+)
+
 data class OrderResponseDto(
     @SerializedName("id") val id: Int,
     @SerializedName("user_id") val userId: Int,
@@ -58,11 +65,13 @@ data class OrderResponseDto(
     @SerializedName("fecha") val fecha: String,
     @SerializedName("Restaurant") val restaurant: RestaurantDto?,
     @SerializedName("Review") val review: ReviewDto?,
+    @SerializedName("Transaction") val transaction: TransactionDto?,
     @SerializedName("OrderItem") val orderItems: List<OrderItemDetailDto>?
 ) {
     fun toDomain(): OrderRecord {
         val domainStatus = when (estado.lowercase().trim()) {
             "pendiente" -> OrderStatus.PENDIENTE
+            "confirmado" -> OrderStatus.CONFIRMADO
             "en preparación", "en_preparacion", "preparando" -> OrderStatus.EN_PREPARACION
             "en camino", "en_camino" -> OrderStatus.EN_CAMINO
             "entregado" -> OrderStatus.ENTREGADO
@@ -87,6 +96,13 @@ data class OrderResponseDto(
         val tax = impuestos ?: (subtotalCalculated * 0.18)
         val shipping = costoEnvio ?: 5.00
 
+        val methodLabel = when (transaction?.metodoPago?.lowercase()?.trim()) {
+            "cash" -> "Efectivo"
+            "card" -> "Tarjeta"
+            "wallet" -> "Billetera Digital"
+            else -> "Pago Registrado"
+        }
+
         return OrderRecord(
             id = "FJ-$id",
             fecha = fecha.take(10),
@@ -96,9 +112,33 @@ data class OrderResponseDto(
             impuestos = tax,
             envio = shipping,
             total = total,
-            paymentMethod = "Pago Registrado",
+            paymentMethod = methodLabel,
             reviewStars = review?.puntuacion,
-            reviewComment = review?.comentario
+            reviewComment = review?.comentario,
+            numericId = id
         )
     }
 }
+
+data class CancelOrderResponseDto(
+    @SerializedName("message") val message: String?,
+    @SerializedName("order") val order: OrderHeaderDto?
+)
+
+data class UpdateOrderStatusRequestDto(
+    @SerializedName("nuevo_estado") val nuevoEstado: String
+)
+
+data class UpdateOrderStatusResponseDto(
+    @SerializedName("message") val message: String?,
+    @SerializedName("order") val order: OrderHeaderDto?
+)
+
+data class AdminOrderDto(
+    @SerializedName("id") val id: Int,
+    @SerializedName("estado") val estado: String,
+    @SerializedName("total") val total: Double,
+    @SerializedName("fecha") val fecha: String,
+    @SerializedName("cliente") val cliente: String?,
+    @SerializedName("restaurante") val restaurante: String?
+)

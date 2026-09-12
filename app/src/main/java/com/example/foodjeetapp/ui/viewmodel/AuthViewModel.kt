@@ -76,11 +76,15 @@ class AuthViewModel(
         }
     }
 
-    fun verifyStudent(onSuccess: () -> Unit) {
+    fun verifyStudent(onSuccess: () -> Unit, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
-            userRepository.updateStudentStatus(true)
-            _currentUser.value = _currentUser.value?.copy(isStudent = true)
-            onSuccess()
+            val result = userRepository.updateStudentStatus(true)
+            result.onSuccess {
+                _currentUser.value = _currentUser.value?.copy(isStudent = true)
+                onSuccess()
+            }.onFailure { err ->
+                onError(err.message ?: "No se pudo verificar el estado de estudiante")
+            }
         }
     }
 

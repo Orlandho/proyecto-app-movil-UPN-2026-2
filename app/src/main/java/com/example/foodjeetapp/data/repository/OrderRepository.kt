@@ -1,11 +1,9 @@
 package com.example.foodjeetapp.data.repository
 
 import com.example.foodjeetapp.data.model.OrderRecord
+import com.example.foodjeetapp.data.model.OrderStatus
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
-import com.example.foodjeetapp.data.remote.dto.CreateAddressRequestDto
-import com.example.foodjeetapp.data.remote.dto.CreateOrderRequestDto
-import com.example.foodjeetapp.data.remote.dto.CreateReviewRequestDto
-import com.example.foodjeetapp.data.remote.dto.OrderItemRequestDto
+import com.example.foodjeetapp.data.remote.dto.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -20,12 +18,16 @@ import kotlinx.coroutines.withContext
 interface OrderRepository {
     fun getOrdersStream(): Flow<List<OrderRecord>>
     suspend fun getOrders(): Result<List<OrderRecord>>
+    suspend fun getOrderById(orderId: Int): Result<OrderRecord>
     suspend fun createOrder(
         order: OrderRecord,
         restauranteId: Int = 1,
-        metodoPago: String = "efectivo",
+        metodoPago: String = "cash",
         cuponId: Int? = null
     ): Result<OrderRecord>
+    suspend fun cancelOrder(orderId: Int): Result<Unit>
+    suspend fun getAllAdminOrders(): Result<List<AdminOrderDto>>
+    suspend fun advanceOrderStatus(orderId: Int, nextStatus: String): Result<Unit>
     suspend fun updateOrderReview(orderId: String, stars: Int, comment: String): Result<Unit>
 }
 
@@ -56,6 +58,19 @@ class OrderRepositoryImpl(
             }
         } catch (e: Exception) {
             Result.failure(Exception("Error de conexión al cargar pedidos: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun getOrderById(orderId: Int): Result<OrderRecord> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getOrderById(orderId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.toDomain())
+            } else {
+                Result.failure(Exception("Error al consultar pedido ($orderId): ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de conexión al consultar pedido: ${e.localizedMessage}", e))
         }
     }
 
@@ -97,25 +112,80 @@ class OrderRepositoryImpl(
 
             val validRestId = order.items.firstOrNull()?.product?.restauranteId ?: restauranteId
 
+            // Mapeo canónico estricto requerido por el backend: cash, card, wallet
+            val canonicalMethod = when (metodoPago.lowercase().trim()) {
+                "card", "tarjeta" -> "card"
+                "wallet", "billetera", "billetera digital", "yape", "plin" -> "wallet"
+                else -> "cash"
+            }
+
             val request = CreateOrderRequestDto(
                 restauranteId = validRestId,
                 direccionEntregaId = addressId,
                 cuponId = cuponId,
-                metodoPago = metodoPago.lowercase().trim(),
+                metodoPago = canonicalMethod,
                 items = orderItemsDto
             )
 
             // 3. Crear orden en backend Node.js / PostgreSQL
             val response = apiService.createOrder(request)
             if (response.isSuccessful && response.body() != null) {
+                val createdId = response.body()!!.order?.id ?: 1
+                val freshOrder = getOrderById(createdId).getOrNull() ?: order.copy(
+                    id = "FJ-$createdId",
+                    numericId = createdId,
+                    estado = if (canonicalMethod == "cash") OrderStatus.PENDIENTE else OrderStatus.CONFIRMADO,
+                    total = response.body()!!.order?.total ?: order.total
+                )
                 // Refrescar el flujo de órdenes con los datos frescos del servidor
                 getOrders()
-                Result.success(order)
+                Result.success(freshOrder)
             } else {
                 Result.failure(Exception("Error al procesar el pedido (${response.code()})"))
             }
         } catch (e: Exception) {
             Result.failure(Exception("Falla de red al enviar el pedido: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun cancelOrder(orderId: Int): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.cancelOrder(orderId)
+            if (response.isSuccessful) {
+                getOrders()
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Error al cancelar pedido (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de red al cancelar pedido: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun getAllAdminOrders(): Result<List<AdminOrderDto>> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getAllOrders()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al consultar pedidos de administración (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de red: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun advanceOrderStatus(orderId: Int, nextStatus: String): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.updateOrderStatus(orderId, UpdateOrderStatusRequestDto(nextStatus))
+            if (response.isSuccessful) {
+                getOrders()
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Error al actualizar estado (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Error de conexión: ${e.localizedMessage}", e))
         }
     }
 

@@ -30,7 +30,7 @@ fun CheckoutScreen(
     initialName: String,
     initialPhone: String,
     onBackToMenu: () -> Unit,
-    onConfirmOrder: (paymentMethod: String, total: Double) -> Unit,
+    onConfirmOrder: (paymentMethod: String, total: Double, cuponId: Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var name by remember { mutableStateOf(initialName) }
@@ -44,20 +44,21 @@ fun CheckoutScreen(
     val isAddressValid = address.trim().length >= 5
     val isFormValid = isNameValid && isPhoneValid && isAddressValid && cartItems.isNotEmpty()
 
-    // Selección de Método de Pago
+    // Selección de Método de Pago: canónicos 'cash', 'card', 'wallet'
     var paymentMethod by remember { mutableStateOf("cash") } // cash, card, wallet
     var cardNumber by remember { mutableStateOf("") }
     var cardExpiry by remember { mutableStateOf("") }
     var cardCvc by remember { mutableStateOf("") }
 
-    // Cupones
-    var couponCode by remember { mutableStateOf("") }
-    var couponApplied by remember { mutableStateOf(false) }
+    // Cupones homologados con la base de datos FoodJet (id 1: PruebaCupon, id 2: FOODJET20)
+    var couponCode by remember { mutableStateOf("PruebaCupon") }
+    var couponAppliedId by remember { mutableStateOf<Int?>(null) }
+    var couponDiscountPercent by remember { mutableStateOf(0.0) }
     var couponMessage by remember { mutableStateOf<String?>(null) }
 
     // Cálculos económicos
     val subtotal = cartItems.sumOf { it.product.getEffectivePrice(isStudent) * it.quantity }
-    val discount = if (couponApplied) subtotal * 0.10 else 0.0
+    val discount = if (couponAppliedId != null) subtotal * couponDiscountPercent else 0.0
     val subtotalAfterDiscount = (subtotal - discount).coerceAtLeast(0.0)
     val taxes = subtotalAfterDiscount * 0.18
     val deliveryFee = 5.00
@@ -295,12 +296,19 @@ fun CheckoutScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = {
-                                    if (couponCode.trim().equals("PruebaCupon", ignoreCase = true)) {
-                                        couponApplied = true
-                                        couponMessage = "¡Cupón del 10% aplicado exitosamente!"
+                                    val code = couponCode.trim()
+                                    if (code.equals("PruebaCupon", ignoreCase = true)) {
+                                        couponAppliedId = 1
+                                        couponDiscountPercent = 0.10
+                                        couponMessage = "¡Cupón 'PruebaCupon' (10%) aplicado exitosamente!"
+                                    } else if (code.equals("FOODJET20", ignoreCase = true)) {
+                                        couponAppliedId = 2
+                                        couponDiscountPercent = 0.20
+                                        couponMessage = "¡Cupón 'FOODJET20' (20%) aplicado exitosamente!"
                                     } else {
-                                        couponApplied = false
-                                        couponMessage = "Código de cupón inválido."
+                                        couponAppliedId = null
+                                        couponDiscountPercent = 0.0
+                                        couponMessage = "Código de cupón no reconocido. Disponibles: PruebaCupon, FOODJET20"
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp),
@@ -315,7 +323,7 @@ fun CheckoutScreen(
                             Text(
                                 text = couponMessage!!,
                                 fontSize = 12.sp,
-                                color = if (couponApplied) FoodJetSuccess else MaterialTheme.colorScheme.error,
+                                color = if (couponAppliedId != null) FoodJetSuccess else MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -324,8 +332,8 @@ fun CheckoutScreen(
 
                         // Desglose
                         FinanceRow("Subtotal", "S/ ${String.format("%.2f", subtotal)}")
-                        if (couponApplied) {
-                            FinanceRow("Descuento (10%)", "-S/ ${String.format("%.2f", discount)}", isDiscount = true)
+                        if (couponAppliedId != null) {
+                            FinanceRow("Descuento (${(couponDiscountPercent * 100).toInt()}%)", "-S/ ${String.format("%.2f", discount)}", isDiscount = true)
                         }
                         FinanceRow("Impuestos (18% IGV)", "S/ ${String.format("%.2f", taxes)}")
                         FinanceRow("Costo de Delivery", "S/ ${String.format("%.2f", deliveryFee)}")
@@ -350,7 +358,7 @@ fun CheckoutScreen(
 
                         // Botón Confirmar Pedido
                         Button(
-                            onClick = { onConfirmOrder(paymentMethod, total) },
+                            onClick = { onConfirmOrder(paymentMethod, total, couponAppliedId) },
                             enabled = isFormValid,
                             modifier = Modifier
                                 .fillMaxWidth()

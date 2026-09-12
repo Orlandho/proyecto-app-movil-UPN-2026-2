@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.foodjeetapp.data.model.OrderRecord
 import com.example.foodjeetapp.ui.components.StarRatingBar
+import com.example.foodjeetapp.ui.theme.FoodJetDark
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
@@ -377,7 +378,9 @@ fun MiCuentaDialog(
     userName: String,
     userEmail: String,
     isStudent: Boolean,
+    isAdmin: Boolean = false,
     onVerifyStudent: () -> Unit,
+    onOpenAdminDashboard: () -> Unit = {},
     onLogout: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -471,6 +474,24 @@ fun MiCuentaDialog(
                                 Text("Verificar Estudiante")
                             }
                         }
+                    }
+                }
+
+                // Opción exclusiva para administradores
+                if (isAdmin) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onOpenAdminDashboard()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = FoodJetDark, contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Panel de Operaciones Admin", fontWeight = FontWeight.Bold)
                     }
                 }
 
