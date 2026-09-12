@@ -56,75 +56,75 @@ jobs:
 
             const body = `# 🤖 [Agente Jules] Sincronización Automática: Alineación con FoodJet
 
-Se ha recibido el evento externo **\`repository_dispatch\`** con tipo **\`foodjet-updated\`** proveniente del repositorio upstream [Orlandho/Pagina-Foodjet](https://github.com/Orlandho/Pagina-Foodjet).
+            Se ha recibido el evento externo **\`repository_dispatch\`** con tipo **\`foodjet-updated\`** proveniente del repositorio upstream [Orlandho/Pagina-Foodjet](https://github.com/Orlandho/Pagina-Foodjet).
 
----
+            ---
 
-## 📌 Metadatos del Evento Externo
-- **Tipo de Evento:** \`repository_dispatch\` (\`foodjet-updated\`)
-- **Repositorio Origen:** [\`Orlandho/Pagina-Foodjet\`](https://github.com/Orlandho/Pagina-Foodjet)
-- **Rama Origen:** \`${branch}\`
-- **Commit SHA:** \`${commitSha}\`
-- **Mensaje del Cambio:** ${commitMsg}
-- **Autor / Disparador:** \`${sender}\`
-- **Marca de Tiempo (UTC):** \`${timestamp}\`
+            ## 📌 Metadatos del Evento Externo
+            - **Tipo de Evento:** \`repository_dispatch\` (\`foodjet-updated\`)
+            - **Repositorio Origen:** [\`Orlandho/Pagina-Foodjet\`](https://github.com/Orlandho/Pagina-Foodjet)
+            - **Rama Origen:** \`${branch}\`
+            - **Commit SHA:** \`${commitSha}\`
+            - **Mensaje del Cambio:** ${commitMsg}
+            - **Autor / Disparador:** \`${sender}\`
+            - **Marca de Tiempo (UTC):** \`${timestamp}\`
 
----
+            ---
 
-## 🎯 Misión del Agente Jules
-Como agente de desarrollo móvil del ecosistema **FoodJet**, tu objetivo es **revisar los cambios recientes en [Orlandho/Pagina-Foodjet](https://github.com/Orlandho/Pagina-Foodjet)** y **alinear la aplicación móvil Android Kotlin (\`FoodJet Móvil\`)** para mantener total paridad funcional, de datos y visual.
+            ## 🎯 Misión del Agente Jules
+            Como agente de desarrollo móvil del ecosistema **FoodJet**, tu objetivo es **revisar los cambios recientes en [Orlandho/Pagina-Foodjet](https://github.com/Orlandho/Pagina-Foodjet)** y **alinear la aplicación móvil Android Kotlin (\`FoodJet Móvil\`)** para mantener total paridad funcional, de datos y visual.
 
-### Instrucciones Específicas de Alineación:
-1. **Revisión de Cambios en Orlandho/Pagina-Foodjet:**
-   - Analizar las modificaciones recientes en el repositorio upstream, prestando especial atención a:
-     * \`backend/src/\`: Nuevos endpoints Express, controladores, modelos Prisma, validaciones o cambios en autenticación.
-     * \`frontend/\`: Nuevos componentes visuales, cambios de diseño en \`index.html\`, interactividad en \`js/\` y paleta cromática en \`styles.css\`.
+            ### Instrucciones Específicas de Alineación:
+            1. **Revisión de Cambios en Orlandho/Pagina-Foodjet:**
+               - Analizar las modificaciones recientes en el repositorio upstream, prestando especial atención a:
+                 * \`backend/src/\`: Nuevos endpoints Express, controladores, modelos Prisma, validaciones o cambios en autenticación.
+                 * \`frontend/\`: Nuevos componentes visuales, cambios de diseño en \`index.html\`, interactividad en \`js/\` y paleta cromática en \`styles.css\`.
 
-2. **Consumo del Backend de FoodJet:**
-   - Si hubo modificaciones o adiciones de endpoints REST:
-     * Actualizar la interfaz Retrofit \`FoodJetApiService\` en \`app/src/main/java/com/example/foodjeetapp/data/remote/api/\`.
-     * Actualizar o crear los DTOs inmutables correspondientes en \`app/src/main/java/com/example/foodjeetapp/data/remote/dto/\`.
-     * Reflejar los cambios en los repositorios (\`ProductRepository\`, \`OrderRepository\`, \`UserRepository\`) y coordinar con la persistencia local Room/DataStore si aplica.
+            2. **Consumo del Backend de FoodJet:**
+               - Si hubo modificaciones o adiciones de endpoints REST:
+                 * Actualizar la interfaz Retrofit \`FoodJetApiService\` en \`app/src/main/java/com/example/foodjeetapp/data/remote/api/\`.
+                 * Actualizar o crear los DTOs inmutables correspondientes en \`app/src/main/java/com/example/foodjeetapp/data/remote/dto/\`.
+                 * Reflejar los cambios en los repositorios (\`ProductRepository\`, \`OrderRepository\`, \`UserRepository\`) y coordinar con la persistencia local Room/DataStore si aplica.
 
-3. **Reflejo de Componentes Visuales y Paleta del Frontend Web:**
-   - Asegurar que la interfaz Jetpack Compose mantenga la paleta oficial de FoodJet definida en \`app/src/main/java/com/example/foodjeetapp/ui/theme/Color.kt\`:
-     * Primario: \`FoodJetPrimary\` (\`#F5AF69\`), \`FoodJetPrimaryDark\` (\`#F39D4A\`), \`FoodJetPrimaryLight\` (\`#FEF3E8\`).
-     * Neutros y fondos: \`FoodJetDark\` (\`#1A1A1A\`), \`FoodJetGray\` (\`#6C757D\`), \`FoodJetLightGray\` (\`#F8F9FA\`), \`FoodJetBorder\` (\`#DEE2E6\`).
-   - Sincronizar componentes modulares (\`ProductCard\`, \`HeroCarousel\`, \`FilterSection\`, \`FoodJetTopBar\`, \`FoodJetBottomBar\`, \`CartSheet\`, etc.) y pantallas (\`HomeScreen\`, \`CheckoutScreen\`, \`TrackingScreen\`, etc.).
+            3. **Reflejo de Componentes Visuales y Paleta del Frontend Web:**
+               - Asegurar que la interfaz Jetpack Compose mantenga la paleta oficial de FoodJet definida en \`app/src/main/java/com/example/foodjeetapp/ui/theme/Color.kt\`:
+                 * Primario: \`FoodJetPrimary\` (\`#F5AF69\`), \`FoodJetPrimaryDark\` (\`#F39D4A\`), \`FoodJetPrimaryLight\` (\`#FEF3E8\`).
+                 * Neutros y fondos: \`FoodJetDark\` (\`#1A1A1A\`), \`FoodJetGray\` (\`#6C757D\`), \`FoodJetLightGray\` (\`#F8F9FA\`), \`FoodJetBorder\` (\`#DEE2E6\`).
+               - Sincronizar componentes modulares (\`ProductCard\`, \`HeroCarousel\`, \`FilterSection\`, \`FoodJetTopBar\`, \`FoodJetBottomBar\`, \`CartSheet\`, etc.) y pantallas (\`HomeScreen\`, \`CheckoutScreen\`, \`TrackingScreen\`, etc.).
 
----
+            ---
 
-## 📂 Delimitación de Carpetas para Modificaciones (según AGENTS.md)
-Para guiar tus modificaciones de código sin alterar la arquitectura base, debes trabajar **estrictamente** dentro de los siguientes directorios del módulo \`app\`:
-- **Vistas e Interfaz Gráfica:**
-  - \`app/src/main/java/com/example/foodjeetapp/ui/screens/\`
-  - \`app/src/main/java/com/example/foodjeetapp/ui/components/\`
-  - \`app/src/main/java/com/example/foodjeetapp/ui/theme/\`
-- **Gestión de Estado y Lógica (ViewModels):**
-  - \`app/src/main/java/com/example/foodjeetapp/ui/viewmodel/\`
-- **Servicios de Red y Datos Remotos:**
-  - \`app/src/main/java/com/example/foodjeetapp/data/remote/api/\`
-  - \`app/src/main/java/com/example/foodjeetapp/data/remote/dto/\`
-  - \`app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/\`
-  - \`app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt\`
-  - \`app/src/main/java/com/example/foodjeetapp/data/repository/\`
-  - \`app/src/main/java/com/example/foodjeetapp/data/model/\`
+            ## 📂 Delimitación de Carpetas para Modificaciones (según AGENTS.md)
+            Para guiar tus modificaciones de código sin alterar la arquitectura base, debes trabajar **estrictamente** dentro de los siguientes directorios del módulo \`app\`:
+            - **Vistas e Interfaz Gráfica:**
+              - \`app/src/main/java/com/example/foodjeetapp/ui/screens/\`
+              - \`app/src/main/java/com/example/foodjeetapp/ui/components/\`
+              - \`app/src/main/java/com/example/foodjeetapp/ui/theme/\`
+            - **Gestión de Estado y Lógica (ViewModels):**
+              - \`app/src/main/java/com/example/foodjeetapp/ui/viewmodel/\`
+            - **Servicios de Red y Datos Remotos:**
+              - \`app/src/main/java/com/example/foodjeetapp/data/remote/api/\`
+              - \`app/src/main/java/com/example/foodjeetapp/data/remote/dto/\`
+              - \`app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/\`
+              - \`app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt\`
+              - \`app/src/main/java/com/example/foodjeetapp/data/repository/\`
+              - \`app/src/main/java/com/example/foodjeetapp/data/model/\`
 
----
+            ---
 
-## ⚠️ REGLA ESTRICTA: Preservación de la Estructura Gradle Base
-- **ESTÁ ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de compilación Gradle:
-  - \`build.gradle.kts\`
-  - \`settings.gradle.kts\`
-  - \`gradle.properties\`
-  - \`gradle/libs.versions.toml\`
-  - \`app/build.gradle.kts\`
-- Todos los cambios de código deben ajustarse a las dependencias y configuración existente (AGP 8.9, Kotlin 2.1, Jetpack Compose, Java 21).
+            ## ⚠️ REGLA ESTRICTA: Preservación de la Estructura Gradle Base
+            - **ESTÁ ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de compilación Gradle:
+              - \`build.gradle.kts\`
+              - \`settings.gradle.kts\`
+              - \`gradle.properties\`
+              - \`gradle/libs.versions.toml\`
+              - \`app/build.gradle.kts\`
+            - Todos los cambios de código deben ajustarse a las dependencias y configuración existente (AGP 8.9, Kotlin 2.1, Jetpack Compose, Java 21).
 
----
-> 🤖 **Asignado a:** Agente Jules (\`@google-jules\` / etiqueta \`jules\`)
-> 📖 **Referencia de Arquitectura:** Consulta el archivo [\`AGENTS.md\`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2/blob/main/AGENTS.md) y [\`docs/INTEGRACION_BACKEND_FOODJET.md\`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2/blob/main/docs/INTEGRACION_BACKEND_FOODJET.md).
-`;
+            ---
+            > 🤖 **Asignado a:** Agente Jules (\`@google-jules\` / etiqueta \`jules\`)
+            > 📖 **Referencia de Arquitectura:** Consulta el archivo [\`AGENTS.md\`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2/blob/main/AGENTS.md) y [\`docs/INTEGRACION_BACKEND_FOODJET.md\`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2/blob/main/docs/INTEGRACION_BACKEND_FOODJET.md).
+            `;
 
             fs.writeFileSync('issue_body.md', body, 'utf8');
             core.setOutput('issue_title', issueTitle);
