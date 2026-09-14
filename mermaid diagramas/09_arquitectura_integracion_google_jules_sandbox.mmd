@@ -1,0 +1,65 @@
+flowchart TD
+    %% Estilos de Nodos y Paleta FoodJet
+    classDef client fill:#FEF3E8,stroke:#F5AF69,stroke-width:2px,color:#1A1A1A;
+    classDef ghActions fill:#E8F4FD,stroke:#0D6EFD,stroke-width:2px,color:#1A1A1A;
+    classDef julesCloud fill:#F3E8FD,stroke:#6F42C1,stroke-width:2px,color:#1A1A1A;
+    classDef blocked fill:#FCE8E6,stroke:#DC3545,stroke-width:2px,color:#721C24;
+    classDef success fill:#D4EDDA,stroke:#28A745,stroke-width:2px,color:#155724;
+
+    subgraph DeveloperWork ["Desarrollo y Apertura de Cambio"]
+        PR["Pull Request hacia 'main'\n(Rama feature/fix)"]:::client
+    end
+
+    subgraph Capa1Actions ["Capa 1: CI Rápido y Determinista (GitHub Actions - 60s)"]
+        direction TB
+        GHA_Start["Trigger en GitHub Actions"]:::ghActions
+        Check1["1. Análisis Estático (Kotlin/OWASP)"]:::ghActions
+        Check2["2. Pruebas Unitarias JUnit (JVM)"]:::ghActions
+        Check3["3. Pruebas Funcionales Caja Negra"]:::ghActions
+        Check4["4. Pruebas de Regresión"]:::ghActions
+
+        GHA_Start --> Check1
+        GHA_Start --> Check2
+        GHA_Start --> Check3
+        GHA_Start --> Check4
+    end
+
+    subgraph Capa2Jules ["Capa 2: Auditoría en Sandbox Virtual de Jules (jules.google.com)"]
+        direction TB
+        Dispatcher["Workflow Despachador de Sesión\n(Crea Issue etiquetado 'jules')"]:::ghActions
+        InitStatus["Marca Status Check:\n'Veredicto Sandbox Jules' -> PENDING"]:::ghActions
+        
+        GHApp["GitHub App de Google Jules\n(Detecta issue y autentica)"]:::julesCloud
+        JulesVM["Sesión en Sandbox Virtual Cloud\n(jules.google.com/session)\nClona repo, corre agentes y pruebas"]:::julesCloud
+        JulesVerdict["Jules emite comentario:\nVEREDICTO: APROBADO o RECHAZADO"]:::julesCloud
+
+        Dispatcher --> InitStatus
+        Dispatcher --> GHApp
+        GHApp --> JulesVM
+        JulesVM --> JulesVerdict
+    end
+
+    subgraph ResolucionCheck ["Cierre de Status Check"]
+        SyncWorkflow["Workflow Listener de Comentarios\n(Captura veredicto de Jules)"]:::ghActions
+        UpdateSuccess["Status Check -> SUCCESS"]:::success
+        UpdateFail["Status Check -> FAILURE"]:::blocked
+
+        JulesVerdict --> SyncWorkflow
+        SyncWorkflow -- "Si Aprobado" --> UpdateSuccess
+        SyncWorkflow -- "Si Rechazado/Errores" --> UpdateFail
+    end
+
+    subgraph FusionRuleset ["Reglas de Protección (GitHub Ruleset #22495789)"]
+        RulesetCheck{"¿Los 4 checks rápidos\ny el Veredicto de Jules\nestán en verde?"}:::client
+        MergeAllowed["FUSIÓN PERMITIDA\n(Squash and Merge a 'main')"]:::success
+        MergeBlocked["FUSIÓN BLOQUEADA\n(HTTP 405 Method Not Allowed)"]:::blocked
+
+        RulesetCheck -- "Sí (Todos Aprobados)" --> MergeAllowed
+        RulesetCheck -- "No (Algún fallo)" --> MergeBlocked
+    end
+
+    PR --> GHA_Start
+    PR --> Dispatcher
+
+    Check1 & Check2 & Check3 & Check4 --> RulesetCheck
+    UpdateSuccess & UpdateFail --> RulesetCheck
