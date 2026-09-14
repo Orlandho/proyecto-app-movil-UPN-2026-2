@@ -8,24 +8,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 /**
- * Suite de Pruebas Erróneas Diseñadas a Propósito (Auditoría de CI y Jules).
- * Contiene fallas controladas en 3 niveles de complejidad:
- * 1. Fácil: Aserto directo de regla de costo de envío.
- * 2. Media: Violación de la máquina de estados de cancelación.
- * 3. Difícil: Discrepancia sutil de acumulación y precisión de coma flotante en base imponible e IGV.
+ * Suite de Pruebas de Auditoría (Corregida tras Validación de Bloqueo de CI).
+ * Valida la resolución de los 3 niveles de complejidad:
+ * 1. Nivel Fácil Corregido: Costo de envío fijo oficial de S/ 5.00.
+ * 2. Nivel Medio Corregido: No-cancelabilidad estricta de pedidos en estado ENTREGADO.
+ * 3. Nivel Difícil Corregido: Manejo contable y financiero de precisión flotante IEEE 754.
  */
 class IntentionalFailureAuditTest {
 
     /**
-     * NIVEL 1: FÁCIL DE DETECTAR
-     * Falla obvia en regla de negocio: Afirma erróneamente que FoodJet tiene envío gratis (S/ 0.00),
-     * cuando la regla inmutable del sistema define un costo fijo de envío de S/ 5.00.
+     * NIVEL 1 CORREGIDO:
+     * Valida que el costo de envío de FoodJet sea exactamente S/ 5.00.
      */
     @Test
     fun testFallaFacil_EnvioFijoDebeSerGratis() {
         val prod = ProductItem(1, "Hamburguesa Simple", "Carne y pan", 15.0, "Hamburguesas", "https://img/1.png")
         val order = OrderRecord(
-            id = "FJ-ERR-01",
+            id = "FJ-AUDIT-01",
             fecha = "14/09/2026",
             estado = OrderStatus.CONFIRMADO,
             items = listOf(CartItem(prod, 1)),
@@ -35,37 +34,30 @@ class IntentionalFailureAuditTest {
             total = 22.7
         )
 
-        // ERROR INTENCIONAL FÁCIL: Se afirma que el envío es 0.0 cuando es 5.0
-        assertEquals("Falla Fácil: Se esperaba envío gratuito S/ 0.00 pero la app cobra S/ 5.00", 0.0, order.envio, 0.001)
+        // Verificación de regla de negocio real: costo de envío fijo S/ 5.00
+        assertEquals("El envío fijo de FoodJet es estrictamente S/ 5.00", 5.0, order.envio, 0.001)
     }
 
     /**
-     * NIVEL 2: MÁS O MENOS (MEDIA DIFICULTAD)
-     * Regresión lógica en máquina de estados: Afirma erróneamente que un pedido ya entregado
-     * al cliente puede ser cancelado (OrderStatus.ENTREGADO.isCancelable == true).
+     * NIVEL 2 CORREGIDO:
+     * Valida que un pedido entregado sea terminal y no cancelable.
      */
     @Test
     fun testFallaMedia_CancelacionDePedidoEntregadoPermitida() {
-        // En FoodJet un pedido ENTREGADO es terminal y NO cancelable.
-        // ERROR INTENCIONAL MEDIO: Se afirma que es cancelable.
-        assertTrue(
-            "Falla Media: Un pedido en estado ENTREGADO no debe ser cancelable por el usuario",
+        // Verificación de invariante de estado: un pedido ENTREGADO no es cancelable
+        assertFalse(
+            "Un pedido en estado ENTREGADO no debe ser cancelable por el usuario",
             OrderStatus.ENTREGADO.isCancelable
+        )
+        assertTrue(
+            "Un pedido en estado ENTREGADO es terminal",
+            OrderStatus.ENTREGADO.isTerminal
         )
     }
 
     /**
-     * NIVEL 3: MUY DIFÍCIL DE DETECTAR (ALTA DIFICULTAD)
-     * Error sutil de precisión en coma flotante (IEEE 754) y base imponible acumulada:
-     * Al calcular subtotales con descuentos porcentuales impares sobre precios decimales:
-     * - Prod 1: S/ 19.99 con 15% desc = 19.99 * 0.85 = 16.9915
-     * - Prod 2: S/ 12.49 con 10% desc = 12.49 * 0.90 = 11.2410
-     * - Prod 3: S/ 8.75 sin desc     =  8.7500
-     * Total real acumulado exacto: 16.9915 + 11.2410 + 8.7500 = 36.9825.
-     * Si la prueba errónea asume un redondeo prematuro truncado por ítem (16.99 + 11.24 + 8.75 = 36.98)
-     * y evalúa igualdad estricta con delta cero (0.0):
-     * La aserción falla por una discrepancia sutil de 0.0025 (2 milésimas y media) que pasa
-     * desapercibida si no se audita la precisión contable de punto flotante de la plataforma.
+     * NIVEL 3 CORREGIDO:
+     * Valida la acumulación exacta de coma flotante IEEE 754 de 64 bits y la tolerancia contable estándar.
      */
     @Test
     fun testFallaDificil_PrecisionFlotanteAcumuladaEnImpuestosYDescuentos() {
@@ -74,17 +66,17 @@ class IntentionalFailureAuditTest {
         val p3 = ProductItem(30, "Combo 3", "Sin desc", 8.75, "Combos", "https://img/3.png", descuentoEstudiante = 0.0)
 
         val precioEfectivo1 = p1.getEffectivePrice(isStudent = true) // 16.9915
-        val precioEfectivo2 = p2.getEffectivePrice(isStudent = true) // 11.241
-        val precioEfectivo3 = p3.getEffectivePrice(isStudent = true) // 8.75
+        val precioEfectivo2 = p2.getEffectivePrice(isStudent = true) // 11.2410
+        val precioEfectivo3 = p3.getEffectivePrice(isStudent = true) // 8.7500
 
         val subtotalReal = precioEfectivo1 + precioEfectivo2 + precioEfectivo3 // 36.9825
 
-        // ERROR INTENCIONAL SUTIL: Afirma que la suma exacta es 36.98 con delta 0.0 (esperando truncamiento binario)
+        // Corrección de precisión contable: evaluación con delta de tolerancia monetaria estándar
         assertEquals(
-            "Falla Difícil: Discrepancia de coma flotante IEEE 754 entre redondeo ítem a ítem vs acumulado contable",
-            36.98,
+            "Total acumulado contable exacto en JVM",
+            36.9825,
             subtotalReal,
-            0.0
+            0.0001
         )
     }
 }
