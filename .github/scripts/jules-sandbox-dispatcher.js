@@ -20,7 +20,7 @@ const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY || 'Orlandho/proyecto-ap
 const GITHUB_API_URL = process.env.GITHUB_API_URL || 'https://api.github.com';
 
 const STATUS_CONTEXT = 'Veredicto de Auditoría en Sandbox de Jules';
-const WATCHDOG_TIMEOUT_MINUTES = parseInt(process.env.WATCHDOG_TIMEOUT_MINUTES || '10', 10);
+const WATCHDOG_TIMEOUT_MINUTES = parseInt(process.env.WATCHDOG_TIMEOUT_MINUTES || '15', 10);
 const POLL_INTERVAL_SECONDS = parseInt(process.env.POLL_INTERVAL_SECONDS || '25', 10);
 
 if (!GITHUB_TOKEN) {
