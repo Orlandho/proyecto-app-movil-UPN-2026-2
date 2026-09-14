@@ -26,8 +26,8 @@ if (!GITHUB_TOKEN) {
   process.exit(1);
 }
 
-// Cliente HTTP para GitHub API
-async function ghRequest(endpoint, method = 'GET', body = null) {
+// Cliente HTTP para GitHub API con reintentos
+async function ghRequest(endpoint, method = 'GET', body = null, retries = 3) {
   const url = `${GITHUB_API_URL}${endpoint}`;
   const headers = {
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -42,15 +42,25 @@ async function ghRequest(endpoint, method = 'GET', body = null) {
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(url, options);
-  const responseData = await res.json().catch(() => null);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      const responseData = await res.json().catch(() => null);
 
-  if (!res.ok) {
-    const errorMsg = responseData?.message || `HTTP ${res.status} ${res.statusText}`;
-    throw new Error(`GitHub API [${method} ${endpoint}] falló: ${errorMsg}`);
+      if (!res.ok) {
+        const errorMsg = responseData?.message || `HTTP ${res.status} ${res.statusText}`;
+        throw new Error(`GitHub API [${method} ${endpoint}] falló: ${errorMsg}`);
+      }
+
+      return responseData;
+    } catch (err) {
+      if (attempt === retries) {
+        throw err;
+      }
+      console.warn(`⚠️ Error en petición HTTP (${err.message}). Reintentando (${attempt}/${retries})...`);
+      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+    }
   }
-
-  return responseData;
 }
 
 // Actualiza el status check del commit
