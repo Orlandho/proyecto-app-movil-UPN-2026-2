@@ -133,8 +133,26 @@ async function main() {
   console.log(`   - URL del comentario: ${commentUrl}`);
 
   // 2. Analizar el contenido del comentario en busca del veredicto
-  const isApproved = /(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(commentBody);
-  const isRejected = /(?:VEREDICTO|VERDICT):\s*(?:RECHAZADO|REJECTED|FALLIDO|FAILED)/i.test(commentBody);
+  let verdictText = commentBody;
+
+  // Si el comentario de Jules enlaza a un PR creado por Jules (ej: "Ready for a review! A [PR](https://.../pull/22) has been created.")
+  const prMatch = commentBody.match(/pull\/(\d+)/i);
+  if (prMatch) {
+    const julesPrNumber = prMatch[1];
+    console.log(`🔍 Se detectó referencia a un PR de Jules: #${julesPrNumber}. Obteniendo título y contenido...`);
+    try {
+      const julesPr = await ghRequest(`/repos/${GITHUB_REPOSITORY}/pulls/${julesPrNumber}`, 'GET');
+      if (julesPr) {
+        verdictText += `\n${julesPr.title}\n${julesPr.body}`;
+        console.log(`📄 Contenido del PR #${julesPrNumber} incorporado al análisis de veredicto.`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ No se pudo obtener el PR #${julesPrNumber}: ${err.message}`);
+    }
+  }
+
+  const isApproved = /(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(verdictText) || /Auditoría .*:\s*APROBADO/i.test(verdictText);
+  const isRejected = /(?:VEREDICTO|VERDICT):\s*(?:RECHAZADO|REJECTED|FALLIDO|FAILED)/i.test(verdictText) || /Auditoría .*:\s*RECHAZADO/i.test(verdictText);
 
   if (isApproved) {
     console.log('🎉 [VEREDICTO DETECTADO]: APROBADO por el Agente Jules.');
