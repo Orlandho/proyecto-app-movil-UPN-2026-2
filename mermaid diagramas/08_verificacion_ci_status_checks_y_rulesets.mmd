@@ -1,0 +1,39 @@
+flowchart TD
+    subgraph SuiteCI ["Pipelines Reales de CI (GitHub Actions + Gradle)"]
+        W1["1. Análisis Estático con Jules\n(Compilación Kotlin + OWASP Mobile)"]
+        W2["2. Pruebas Unitarias con Jules\n(JUnit XML Real en JVM)"]
+        W3["3. Pruebas Funcionales con Jules\n(Contratos REST Retrofit + DTOs)"]
+        W4["4. Pruebas de Regresión con Jules\n(Estabilidad de Modelos + Blast Radius)"]
+    end
+
+    subgraph Auditoria3Niveles ["Auditoría de Fallas en 3 Niveles"]
+        F1["Nivel 1 (Fácil):\nEnvío gratis S/ 0.00 vs Fijo S/ 5.00"] -.->|Detectado por JUnit| W2
+        F2["Nivel 2 (Media):\nCancelación de pedido ENTREGADO"] -.->|Detectado por JUnit| W2
+        F3["Nivel 3 (Difícil):\nPrecisión flotante IEEE 754 acumulada"] -.->|Detectado por JUnit| W2
+    end
+
+    subgraph EvaluacionJules ["Orquestador Real Jules (jules-mobile-agent.js)"]
+        W1 --> ParseStatic["Validación de Compilabilidad y Seguridad"]
+        W2 --> ParseXML["Parser XML de Resultados JUnit\n(Sin métricas quemadas)"]
+        W3 --> ParseFunc["Verificación de Endpoints y Cálculos"]
+        W4 --> ParseReg["Verificación de Compatibilidad Hacia Atrás"]
+    end
+
+    subgraph DecisionChecks ["Evaluación de Status Checks"]
+        ParseStatic --> CheckResult{"¿Falló alguna prueba\no compilación?"}
+        ParseXML --> CheckResult
+        ParseFunc --> CheckResult
+        ParseReg --> CheckResult
+        CheckResult -- "Sí (Fallas > 0)" --> StatusRed["Estado: 🔴 FAILURE\n(Código de salida 1)"]
+        CheckResult -- "No (Fallas = 0)" --> StatusGreen["Estado: 🟢 SUCCESS\n(Código de salida 0)"]
+    end
+
+    subgraph RulesetGitHub ["GitHub Repository Ruleset #22495789 (Rama main)"]
+        StatusRed --> Blocked["mergeable_state: blocked\nHTTP 405 Method Not Allowed\nFusión ESTRICTAMENTE IMPEDIDA"]
+        StatusGreen --> Clean["mergeable_state: clean\nFusión AUTORIZADA\n(Squash Merge)"]
+    end
+
+    style StatusRed fill:#ffdddd,stroke:#ff0000,stroke-width:2px;
+    style StatusGreen fill:#ddffdd,stroke:#00aa00,stroke-width:2px;
+    style Blocked fill:#ffe6e6,stroke:#cc0000,stroke-width:2px;
+    style Clean fill:#e6ffe6,stroke:#008800,stroke-width:2px;
