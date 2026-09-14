@@ -66,6 +66,16 @@ class HomeViewModel(
 
     init {
         loadProducts()
+        loadFavorites()
+    }
+
+    fun loadFavorites() {
+        viewModelScope.launch {
+            val result = productRepository.getFavoriteProductIds()
+            result.onSuccess { ids ->
+                _favorites.value = ids
+            }
+        }
     }
 
     fun loadProducts() {
@@ -89,6 +99,7 @@ class HomeViewModel(
 
     fun retry() {
         loadProducts()
+        loadFavorites()
     }
 
     fun setCategory(category: String) {
@@ -104,8 +115,20 @@ class HomeViewModel(
     }
 
     fun toggleFavorite(productId: Int) {
+        val wasFav = _favorites.value.contains(productId)
+        // Actualización reactiva optimista
         _favorites.update { current ->
-            if (current.contains(productId)) current - productId else current + productId
+            if (wasFav) current - productId else current + productId
+        }
+        // Sincronización con backend PostgreSQL
+        viewModelScope.launch {
+            val result = productRepository.toggleFavorite(productId)
+            result.onFailure {
+                // Revertir en caso de error
+                _favorites.update { current ->
+                    if (wasFav) current + productId else current - productId
+                }
+            }
         }
     }
 

@@ -41,6 +41,8 @@ fun FoodJetApp(
 
     val cartItems by cartViewModel.cartItems.collectAsStateWithLifecycle()
     val ordersState by orderViewModel.ordersState.collectAsStateWithLifecycle()
+    val currentTrackingOrder by orderViewModel.currentTrackingOrder.collectAsStateWithLifecycle()
+    val adminOrdersState by orderViewModel.adminOrdersState.collectAsStateWithLifecycle()
 
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
@@ -55,6 +57,8 @@ fun FoodJetApp(
     var showLoginDialog by remember { mutableStateOf(false) }
     var showRegisterDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var pendingWalletCouponId by remember { mutableStateOf<Int?>(null) }
+    var pendingWalletTotal by remember { mutableDoubleStateOf(0.0) }
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
 
@@ -172,6 +176,10 @@ fun FoodJetApp(
                         onLeaveReview = { order ->
                             reviewTargetOrder = order
                         },
+                        onTrackOrder = { order ->
+                            orderViewModel.setTrackingOrder(order)
+                            currentRoute = "tracking"
+                        },
                         onBackToMenu = { currentRoute = "home" }
                     )
                 }
@@ -182,30 +190,33 @@ fun FoodJetApp(
                         initialName = activeUser.name,
                         initialPhone = activeUser.phone,
                         onBackToMenu = { currentRoute = "home" },
-                        onConfirmOrder = { method, total ->
+                        onConfirmOrder = { method, total, cuponId ->
                             if (method == "wallet") {
+                                pendingWalletCouponId = cuponId
+                                pendingWalletTotal = total
                                 showQrDialog = true
                             } else {
                                 val restId = cartItems.firstOrNull()?.product?.restauranteId ?: 1
                                 val newOrder = OrderRecord(
                                     id = "FJ-TEMP",
                                     fecha = "Hoy",
-                                    estado = OrderStatus.PENDIENTE,
+                                    estado = if (method == "card") OrderStatus.CONFIRMADO else OrderStatus.PENDIENTE,
                                     items = cartItems,
                                     subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
                                     impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
                                     total = total,
-                                    paymentMethod = if (method == "card") "tarjeta" else "efectivo"
+                                    paymentMethod = method
                                 )
                                 orderViewModel.createOrder(
                                     order = newOrder,
                                     restauranteId = restId,
-                                    metodoPago = if (method == "card") "tarjeta" else "efectivo",
-                                    onSuccess = {
+                                    metodoPago = method,
+                                    cuponId = cuponId,
+                                    onSuccess = { createdOrder ->
                                         cartViewModel.clearCart()
                                         currentRoute = "tracking"
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("¡Pedido registrado exitosamente en el backend!")
+                                            snackbarHostState.showSnackbar("¡Pedido #${createdOrder.id} registrado exitosamente!")
                                         }
                                     },
                                     onError = { err ->
@@ -220,12 +231,48 @@ fun FoodJetApp(
                 }
                 "tracking" -> {
                     TrackingScreen(
+                        order = currentTrackingOrder,
+                        onCancelOrder = { orderId ->
+                            orderViewModel.cancelCurrentOrder(
+                                orderId = orderId,
+                                onSuccess = {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Pedido cancelado exitosamente")
+                                    }
+                                },
+                                onError = { err ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(err)
+                                    }
+                                }
+                            )
+                        },
                         onBackToMenu = { currentRoute = "home" },
                         onViewHistory = { currentRoute = "orders" }
                     )
                 }
                 "dashboard" -> {
                     AdminDashboardScreen(
+                        ordersState = adminOrdersState,
+                        onAdvanceOrderStatus = { orderId, nextStatus ->
+                            orderViewModel.advanceOrderStatus(
+                                orderId = orderId,
+                                nextStatus = nextStatus,
+                                onSuccess = {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Pedido #$orderId actualizado a $nextStatus")
+                                    }
+                                },
+                                onError = { err ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(err)
+                                    }
+                                }
+                            )
+                        },
+                        onRefresh = {
+                            orderViewModel.loadAdminOrders()
+                        },
                         onBack = { currentRoute = "home" }
                     )
                 }
@@ -267,8 +314,9 @@ fun FoodJetApp(
                     password = password,
                     onSuccess = { userName ->
                         showLoginDialog = false
-                        // Recargar pedidos del usuario recién logueado
+                        // Recargar pedidos y favoritos del usuario recién logueado
                         orderViewModel.loadOrders()
+                        homeViewModel.loadFavorites()
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("¡Bienvenido, $userName!")
                         }
@@ -300,6 +348,7 @@ fun FoodJetApp(
                     onSuccess = {
                         showRegisterDialog = false
                         orderViewModel.loadOrders()
+                        homeViewModel.loadFavorites()
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("¡Cuenta creada exitosamente!")
                         }
@@ -328,22 +377,23 @@ fun FoodJetApp(
                 val newOrder = OrderRecord(
                     id = "FJ-TEMP",
                     fecha = "Hoy",
-                    estado = OrderStatus.EN_PREPARACION,
+                    estado = OrderStatus.CONFIRMADO,
                     items = cartItems,
                     subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
                     impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
-                    total = cartViewModel.getTotal(activeUser.isStudent),
-                    paymentMethod = "billetera"
+                    total = pendingWalletTotal,
+                    paymentMethod = "wallet"
                 )
                 orderViewModel.createOrder(
                     order = newOrder,
                     restauranteId = restId,
-                    metodoPago = "billetera",
-                    onSuccess = {
+                    metodoPago = "wallet",
+                    cuponId = pendingWalletCouponId,
+                    onSuccess = { createdOrder ->
                         cartViewModel.clearCart()
                         currentRoute = "tracking"
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Pago confirmado! Preparando tu orden.")
+                            snackbarHostState.showSnackbar("¡Pago confirmado! Pedido #${createdOrder.id} en preparación.")
                         }
                     },
                     onError = { err ->
@@ -388,18 +438,30 @@ fun FoodJetApp(
             userName = activeUser.name,
             userEmail = activeUser.email,
             isStudent = activeUser.isStudent,
+            isAdmin = activeUser.isAdmin,
             onVerifyStudent = {
-                authViewModel.verifyStudent {
-                    showMiCuentaDialog = false
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
+                authViewModel.verifyStudent(
+                    onSuccess = {
+                        showMiCuentaDialog = false
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
+                        }
+                    },
+                    onError = { err ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(err)
+                        }
                     }
-                }
+                )
+            },
+            onOpenAdminDashboard = {
+                currentRoute = "dashboard"
             },
             onLogout = {
                 authViewModel.logout {
                     showMiCuentaDialog = false
                     orderViewModel.loadOrders()
+                    homeViewModel.loadFavorites()
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("Sesión cerrada")
                     }

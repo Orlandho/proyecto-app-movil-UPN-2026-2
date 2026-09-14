@@ -101,10 +101,21 @@ class UserRepositoryImpl(
 
     override suspend fun updateStudentStatus(isStudent: Boolean): Result<Unit> = withContext(ioDispatcher) {
         try {
+            if (isStudent) {
+                val response = apiService.verifyStudent()
+                if (response.isSuccessful || response.code() == 400) {
+                    sessionDataStore.updateStudentStatus(true)
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Error al verificar estudiante en el servidor (${response.code()})"))
+                }
+            } else {
+                sessionDataStore.updateStudentStatus(false)
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
             sessionDataStore.updateStudentStatus(isStudent)
             Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 

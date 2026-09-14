@@ -35,12 +35,16 @@ data class PromotionSlide(
     val buttonText: String
 )
 
-enum class OrderStatus(val label: String) {
-    PENDIENTE("Pendiente"),
-    EN_PREPARACION("En preparación"),
-    EN_CAMINO("En camino"),
-    ENTREGADO("Entregado"),
-    CANCELADO("Cancelado")
+enum class OrderStatus(val label: String, val stepIndex: Int = 1) {
+    PENDIENTE("Pendiente", 1),
+    CONFIRMADO("Confirmado", 1),
+    EN_PREPARACION("En preparación", 2),
+    EN_CAMINO("En camino", 3),
+    ENTREGADO("Entregado", 4),
+    CANCELADO("Cancelado", 0);
+
+    val isTerminal: Boolean get() = this == ENTREGADO || this == CANCELADO
+    val isCancelable: Boolean get() = this == PENDIENTE || this == CONFIRMADO
 }
 
 data class OrderRecord(
@@ -55,7 +59,8 @@ data class OrderRecord(
     val total: Double,
     val paymentMethod: String = "Efectivo",
     val reviewStars: Int? = null,
-    val reviewComment: String? = null
+    val reviewComment: String? = null,
+    val numericId: Int = id.removePrefix("FJ-").toIntOrNull() ?: 0
 )
 
 data class UserProfile(

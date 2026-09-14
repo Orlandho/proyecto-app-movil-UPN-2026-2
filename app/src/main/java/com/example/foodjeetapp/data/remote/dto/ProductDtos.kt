@@ -60,3 +60,8 @@ data class ProductDto(
         )
     }
 }
+
+data class ToggleFavoriteResponseDto(
+    @SerializedName("message") val message: String,
+    @SerializedName("isFavorite") val isFavorite: Boolean
+)
