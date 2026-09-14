@@ -20,7 +20,7 @@ const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY || 'Orlandho/proyecto-ap
 const GITHUB_API_URL = process.env.GITHUB_API_URL || 'https://api.github.com';
 
 const STATUS_CONTEXT = 'Veredicto de Auditoría en Sandbox de Jules';
-const WATCHDOG_TIMEOUT_MINUTES = parseInt(process.env.WATCHDOG_TIMEOUT_MINUTES || '10', 10);
+const WATCHDOG_TIMEOUT_MINUTES = parseInt(process.env.WATCHDOG_TIMEOUT_MINUTES || '20', 10);
 const POLL_INTERVAL_SECONDS = parseInt(process.env.POLL_INTERVAL_SECONDS || '25', 10);
 
 if (!GITHUB_TOKEN) {
@@ -277,14 +277,26 @@ Por favor verifica los permisos del workflow (\`issues: write\`) y reintenta.`);
             const body = comment.body || '';
             const commentUrl = comment.html_url || issueUrl;
 
-            if (/(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(body)) {
-              console.log(`🎉 [Watchdog]: Detectado VEREDICTO: APROBADO en comentarios del Issue #${issueNumber}`);
+            let checkText = body;
+            const prMatch = body.match(/pull\/(\d+)/i);
+            if (prMatch) {
+              try {
+                const julesPr = await ghRequest(`/repos/${GITHUB_REPOSITORY}/pulls/${prMatch[1]}`, 'GET');
+                if (julesPr) {
+                  checkText += `\n${julesPr.title}\n${julesPr.body}`;
+                  console.log(`🔍 [Watchdog]: Inspeccionando PR de Jules #${prMatch[1]}`);
+                }
+              } catch (e) {}
+            }
+
+            if (/(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(checkText) || /Auditoría .*:\s*APROBADO/i.test(checkText)) {
+              console.log(`🎉 [Watchdog]: Detectado VEREDICTO: APROBADO en comentarios/PR del Issue #${issueNumber}`);
               await setCommitStatus(headSha, 'success', '✅ Aprobado por el Agente Jules en entorno virtual', commentUrl);
               await postComment(prNumber, `### 🟢 [Agente Jules] Auditoría Virtual APROBADA (Detectada por Watchdog)\n\nEl Agente Jules completó la auditoría en su entorno virtual con resultado favorable:\n- **Veredicto:** \`VEREDICTO: APROBADO\`\n- **Status Check:** \`${STATUS_CONTEXT}\` -> **SUCCESS (🟢 Aprobado)**\n- **Detalle:** [Ver análisis en Issue #${issueNumber}](${commentUrl})`);
               finalState = 'success';
               break;
-            } else if (/(?:VEREDICTO|VERDICT):\s*(?:RECHAZADO|REJECTED|FALLIDO|FAILED)/i.test(body)) {
-              console.log(`🛑 [Watchdog]: Detectado VEREDICTO: RECHAZADO en comentarios del Issue #${issueNumber}`);
+            } else if (/(?:VEREDICTO|VERDICT):\s*(?:RECHAZADO|REJECTED|FALLIDO|FAILED)/i.test(checkText) || /Auditoría .*:\s*RECHAZADO/i.test(checkText)) {
+              console.log(`🛑 [Watchdog]: Detectado VEREDICTO: RECHAZADO en comentarios/PR del Issue #${issueNumber}`);
               await setCommitStatus(headSha, 'failure', '❌ Rechazado por el Agente Jules. Requiere correcciones.', commentUrl);
               await postComment(prNumber, `### 🔴 [Agente Jules] Auditoría Virtual RECHAZADA (Detectada por Watchdog)\n\nEl Agente Jules detectó inconsistencias en su sandbox virtual:\n- **Veredicto:** \`VEREDICTO: RECHAZADO\`\n- **Status Check:** \`${STATUS_CONTEXT}\` -> **FAILURE (🔴 Bloqueado)**\n- **Detalle:** [Ver observaciones en Issue #${issueNumber}](${commentUrl})`);
               finalState = 'failure';
