@@ -251,8 +251,9 @@ Por favor verifica los permisos del workflow (\`issues: write\`) y reintenta.`);
 
     const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
     try {
+      // 1. Verificar si el Status Check ya fue actualizado por el listener
       const currentState = await getCommitStatusState(headSha);
-      console.log(`[Watchdog T+${elapsedSeconds}s | Iteración ${iteration}] Estado actual del check: ${currentState?.toUpperCase() || 'NO_ENCONTRADO'}`);
+      console.log(`[Watchdog T+${elapsedSeconds}s | Iteración ${iteration}] Estado del status check: ${currentState?.toUpperCase() || 'NO_ENCONTRADO'}`);
 
       if (currentState === 'success') {
         console.log('🎉 ¡VEREDICTO APROBADO DETECTADO! El check se encuentra en SUCCESS.');
@@ -266,6 +267,34 @@ Por favor verifica los permisos del workflow (\`issues: write\`) y reintenta.`);
         console.log('⚠️ ESTADO DE ERROR DETECTADO EN EL STATUS CHECK.');
         finalState = 'error';
         break;
+      }
+
+      // 2. Respaldo directo: Consultar comentarios en el Issue de auditoría
+      if (issueNumber) {
+        const comments = await ghRequest(`/repos/${GITHUB_REPOSITORY}/issues/${issueNumber}/comments`, 'GET');
+        if (Array.isArray(comments) && comments.length > 0) {
+          for (const comment of comments) {
+            const body = comment.body || '';
+            const commentUrl = comment.html_url || issueUrl;
+
+            if (/(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(body)) {
+              console.log(`🎉 [Watchdog]: Detectado VEREDICTO: APROBADO en comentarios del Issue #${issueNumber}`);
+              await setCommitStatus(headSha, 'success', '✅ Aprobado por el Agente Jules en entorno virtual', commentUrl);
+              await postComment(prNumber, `### 🟢 [Agente Jules] Auditoría Virtual APROBADA (Detectada por Watchdog)\n\nEl Agente Jules completó la auditoría en su entorno virtual con resultado favorable:\n- **Veredicto:** \`VEREDICTO: APROBADO\`\n- **Status Check:** \`${STATUS_CONTEXT}\` -> **SUCCESS (🟢 Aprobado)**\n- **Detalle:** [Ver análisis en Issue #${issueNumber}](${commentUrl})`);
+              finalState = 'success';
+              break;
+            } else if (/(?:VEREDICTO|VERDICT):\s*(?:RECHAZADO|REJECTED|FALLIDO|FAILED)/i.test(body)) {
+              console.log(`🛑 [Watchdog]: Detectado VEREDICTO: RECHAZADO en comentarios del Issue #${issueNumber}`);
+              await setCommitStatus(headSha, 'failure', '❌ Rechazado por el Agente Jules. Requiere correcciones.', commentUrl);
+              await postComment(prNumber, `### 🔴 [Agente Jules] Auditoría Virtual RECHAZADA (Detectada por Watchdog)\n\nEl Agente Jules detectó inconsistencias en su sandbox virtual:\n- **Veredicto:** \`VEREDICTO: RECHAZADO\`\n- **Status Check:** \`${STATUS_CONTEXT}\` -> **FAILURE (🔴 Bloqueado)**\n- **Detalle:** [Ver observaciones en Issue #${issueNumber}](${commentUrl})`);
+              finalState = 'failure';
+              break;
+            }
+          }
+          if (finalState === 'success' || finalState === 'failure') {
+            break;
+          }
+        }
       }
     } catch (pollErr) {
       console.warn(`⚠️ Error transitorio durante el sondeo del status (se reintentará): ${pollErr.message}`);
