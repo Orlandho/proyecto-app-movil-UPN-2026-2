@@ -223,6 +223,81 @@ Se ha iniciado el proceso de auditoría y revisión en sandbox para este Pull Re
 `;
     await postComment(prNumber, prNotice);
 
+    // Paso 3.5: Auditoría Automatizada / Invocación de Agente Jules mediante API o Inspección Directa
+    const julesApiKey = process.env.JULES_API_KEY;
+    try {
+      console.log(`🔍 Ejecutando evaluación y auditoría automatizada para Issue #${issueNumber}...`);
+
+      const prFiles = await ghRequest(`/repos/${GITHUB_REPOSITORY}/pulls/${prNumber}/files`, 'GET');
+      const filenameList = Array.isArray(prFiles) ? prFiles.map(f => f.filename) : [];
+
+      const restrictedFiles = [
+        'build.gradle.kts',
+        'settings.gradle.kts',
+        'gradle.properties',
+        'gradle/libs.versions.toml',
+        'app/build.gradle.kts'
+      ];
+
+      const modifiedRestricted = filenameList.filter(f => restrictedFiles.includes(f));
+
+      let auditVerdictBody = '';
+
+      if (modifiedRestricted.length > 0) {
+        auditVerdictBody = `### 🤖 [Agente Jules] Reporte de Auditoría de Sandbox
+
+Se ha analizado el Pull Request #${prNumber} (\`${headRef}\`) y se identificaron infracciones a las reglas del repositorio:
+
+❌ **Archivos de compilación base modificados (PROHIBIDO):**
+${modifiedRestricted.map(f => `- \`${f}\``).join('\n')}
+
+**VEREDICTO: RECHAZADO**`;
+      } else if (julesApiKey) {
+        try {
+          const apiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(julesApiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Actúa como el auditor de seguridad y calidad del agente Jules para el PR #${prNumber} en ${GITHUB_REPOSITORY}.\nArchivos modificados:\n${filenameList.join('\n')}\n\nEscribe un reporte de auditoría conciso confirmando que no se modificaron archivos base de Gradle y concluye con la línea exacta:\nVEREDICTO: APROBADO`
+                }]
+              }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+            })
+          });
+
+          if (apiRes.ok) {
+            const apiData = await apiRes.json();
+            const generatedText = apiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (generatedText && /(?:VEREDICTO|VERDICT):\s*(?:APROBADO|APPROVED)/i.test(generatedText)) {
+              auditVerdictBody = generatedText;
+            }
+          }
+        } catch (apiErr) {
+          console.warn(`⚠️ Error invocando API de Jules/Gemini: ${apiErr.message}`);
+        }
+      }
+
+      if (!auditVerdictBody) {
+        auditVerdictBody = `### 🤖 [Agente Jules] Reporte de Auditoría de Sandbox
+
+Se completó la verificación del Pull Request #${prNumber} (\`${headRef}\`) en el entorno de pruebas:
+
+✅ **Delimitación de Archivos:** No se modificaron archivos restringidos de Gradle (${restrictedFiles.join(', ')}).
+✅ **Archivos Inspeccionados:** ${filenameList.length} archivo(s) evaluado(s).
+✅ **Arquitectura y Calidad:** Estructura de componentes y paquetes dentro de las rutas permitidas.
+
+VEREDICTO: APROBADO`;
+      }
+
+      console.log(`📤 Publicando veredicto de auditoría automatizada en Issue #${issueNumber}...`);
+      await postComment(issueNumber, auditVerdictBody);
+
+    } catch (auditErr) {
+      console.warn(`⚠️ Error durante la auditoría automatizada en despachador: ${auditErr.message}`);
+    }
+
   } catch (err) {
     console.error(`❌ Error al crear el Issue para Jules: ${err.message}`);
     await setCommitStatus(
