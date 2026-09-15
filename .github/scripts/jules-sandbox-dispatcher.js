@@ -14,7 +14,6 @@
  */
 
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY || 'Orlandho/proyecto-app-movil-UPN-2026-2';
@@ -223,45 +222,6 @@ Se ha iniciado el proceso de auditoría y revisión en sandbox para este Pull Re
 > ⏳ *Jules clonará la rama \`${headRef}\` en su contenedor virtual, ejecutará las pruebas y emitirá su veredicto. Este Pull Request permanecerá bloqueado hasta recibir \`VEREDICTO: APROBADO\`.*
 `;
     await postComment(prNumber, prNotice);
-
-    // Intentar evaluación automatizada directa en el runner para emitir veredicto en caso de que Jules no responda vía webhook
-    console.log(`\n⚡ EJECUTANDO EVALUACIÓN DE AUDITORÍA AUTOMATIZADA EN RUNNER DE CI...`);
-    const gradlewCmd = process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew';
-    let auditSuccess = true;
-    let auditOutput = '';
-
-    try {
-      auditOutput = execSync(`${gradlewCmd} testDebugUnitTest --no-daemon`, { encoding: 'utf8', cwd: process.cwd(), timeout: 300000 });
-      console.log('✅ Verificación de pruebas unitarias y de integración exitosa en runner.');
-    } catch (err) {
-      auditSuccess = false;
-      auditOutput = (err.stdout || '') + '\n' + (err.stderr || '');
-      console.error('❌ Error ejecutando pruebas unitarias en runner.');
-    }
-
-    if (auditSuccess) {
-      const autoVerdictComment = `### 🤖 [Google Jules Runner] Reporte de Auditoría Automatizada
-
-Se han verificado satisfactoriamente todos los criterios de calidad y pruebas unitarias de FoodJet Móvil:
-- **Compilación Kotlin:** Éxito sin errores.
-- **Suite de Pruebas Gradle:** Pass (\`./gradlew testDebugUnitTest\`).
-- **Verificación de Reglas Gradle Base:** Sin modificaciones prohibidas.
-
-VEREDICTO: APROBADO`;
-      await postComment(issueNumber, autoVerdictComment);
-      console.log(`✅ Veredicto APROBADO publicado automáticamente en Issue #${issueNumber}.`);
-    } else {
-      const autoVerdictComment = `### 🔴 [Google Jules Runner] Reporte de Auditoría Automatizada
-
-Se han detectado fallos en la suite de pruebas o compilación del proyecto:
-\`\`\`
-${auditOutput.substring(0, 1000)}
-\`\`\`
-
-VEREDICTO: RECHAZADO`;
-      await postComment(issueNumber, autoVerdictComment);
-      console.log(`❌ Veredicto RECHAZADO publicado automáticamente en Issue #${issueNumber}.`);
-    }
 
   } catch (err) {
     console.error(`❌ Error al crear el Issue para Jules: ${err.message}`);
