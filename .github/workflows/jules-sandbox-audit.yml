@@ -31,14 +31,23 @@ jobs:
       - name: Descargar repositorio móvil
         uses: actions/checkout@v4
 
+      - name: Configurar JDK 21 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Configurar Node.js (Entorno del Despachador)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Dar permisos de ejecución a gradlew
+        run: chmod +x gradlew
+
       - name: Despachar Sesión a Google Jules y Ejecutar Watchdog de Veredicto
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.JULES_DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_API_URL: ${{ github.api_url }}
           WATCHDOG_TIMEOUT_MINUTES: 10
