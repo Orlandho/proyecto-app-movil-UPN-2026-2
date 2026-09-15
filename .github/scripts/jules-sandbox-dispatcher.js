@@ -29,8 +29,8 @@ if (!GITHUB_TOKEN) {
   process.exit(1);
 }
 
-// Cliente HTTP para GitHub API
-async function ghRequest(endpoint, method = 'GET', body = null) {
+// Cliente HTTP para GitHub API con reintentos para fallos transitorios de red
+async function ghRequest(endpoint, method = 'GET', body = null, retries = 3) {
   const url = `${GITHUB_API_URL}${endpoint}`;
   const headers = {
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -45,15 +45,23 @@ async function ghRequest(endpoint, method = 'GET', body = null) {
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(url, options);
-  const responseData = await res.json().catch(() => null);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      const responseData = await res.json().catch(() => null);
 
-  if (!res.ok) {
-    const errorMsg = responseData?.message || `HTTP ${res.status} ${res.statusText}`;
-    throw new Error(`GitHub API [${method} ${endpoint}] falló: ${errorMsg}`);
+      if (!res.ok) {
+        const errorMsg = responseData?.message || `HTTP ${res.status} ${res.statusText}`;
+        throw new Error(`GitHub API [${method} ${endpoint}] falló: ${errorMsg}`);
+      }
+
+      return responseData;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      console.warn(`⚠️ Error de red transitorio en ghRequest (${err.message}). Reintentando (${attempt}/${retries})...`);
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
   }
-
-  return responseData;
 }
 
 // Establece el status check del commit
