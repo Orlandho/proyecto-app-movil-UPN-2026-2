@@ -107,6 +107,15 @@ El agente Jules tiene **ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de infr
 
 **Justificación técnica:** La versión del Android Gradle Plugin (AGP 8.9), la versión de Kotlin (2.1), la toolchain de JVM (Java 21) y el compilador de Compose (`libs.plugins.kotlin.compose`) están estrictamente alineados y validados para compatibilidad con la suite de pruebas móviles. Cualquier modificación no supervisada en las versiones o plugins puede romper la integración continua. Toda tarea de alineación debe resolverse mediante código fuente Kotlin y Jetpack Compose dentro de los paquetes habilitados.
 
+### 3. REGLA ESTRICTA: Prohibición Total de Datos Dummy en Producción y Diseño para Entorno Productivo Real
+Queda **ESTRICTAMENTE PROHIBIDO** subir o fusionar código a producción (`main`) que contenga datos ficticios, listas quemadas en memoria (*hardcoded mock/dummy data*), placeholders estáticos o respuestas simuladas como sustituto de la lógica real.
+
+**Directrices Mandatorias:**
+1. **Diseño Orientado a Producción Real:** La aplicación móvil está concebida desde su arquitectura para operar en entornos productivos reales, consumiendo dinámicamente los servicios REST del backend de FoodJet mediante Retrofit y persistiendo datos en Room/DataStore.
+2. **Consumo Dinámico de la API:** Todo catálogo de productos, listado de órdenes, perfil de usuario, reseñas y direcciones debe obtenerse de los endpoints de la API central (`FoodJetApiService`) respaldada por la base de datos PostgreSQL en Aiven.
+3. **Manejo Resiliente de Estados:** Las pantallas y ViewModels deben gestionar estados reales de carga (`Loading`), éxito con datos reales (`Success`), estado vacío legítimo (`Empty`) cuando el backend no retorne registros, y estado de error (`Error`) con opciones de reintento.
+4. **Delimitación de Datos de Prueba:** Los datos simulados o mocks solo se toleran dentro del directorio de pruebas unitarias (`app/src/test/`) o en previsualizaciones aisladas de Jetpack Compose (`@Preview`), nunca en el flujo de ejecución principal ni en los ViewModels/Repositorios del paquete `app/src/main/`.
+
 ---
 
 ## Orquestación del Agente Jules y Flujo de Eventos Externos
