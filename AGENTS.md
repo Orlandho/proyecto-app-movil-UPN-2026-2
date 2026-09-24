@@ -118,64 +118,7 @@ Queda **ESTRICTAMENTE PROHIBIDO** subir o fusionar código a producción (`main`
 
 ---
 
-## Orquestación del Agente Jules y Flujo de Eventos Externos
 
-### Protocolo de Comunicación
-- **Evento Disparador:** `repository_dispatch`
-- **Tipo de Evento:** `foodjet-updated`
-- **Repositorio Origen (Emisor):** [`Orlandho/Pagina-Foodjet`](https://github.com/Orlandho/Pagina-Foodjet)
-- **Repositorio Destino (Receptor):** [`Orlandho/proyecto-app-movil-UPN-2026-2`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2)
-- **Flujo Receptor:** [`.github/workflows/receive-foodjet-sync.yml`](.github/workflows/receive-foodjet-sync.yml)
-- **Mecanismo de Despacho:**
-  1. Al recibir el evento `foodjet-updated`, el flujo crea automáticamente un Issue en GitHub asignado al agente Jules mediante la etiqueta `jules` usando GitHub CLI.
-  2. Si el secreto `JULES_API_KEY` está configurado en el repositorio, se genera además un análisis preliminar y plan de trabajo directo mediante la API de Jules/Gemini, adjuntándolo como comentario en el issue.
-  3. El agente Jules toma el issue, examina los commits y diferencias recientes en `Orlandho/Pagina-Foodjet`, implementa los ajustes requeridos en las vistas, ViewModels o servicios de red de la app Kotlin, y somete los cambios a través de un Pull Request para revisión.
-
-
----
-
-## Auditoría en Sandbox Virtual de Google Jules y Status Checks Vinculantes
-
-Para garantizar que ningún cambio sea integrado a la rama `main` sin superar una evaluación rigurosa tanto determinista como agéntica, el repositorio implementa una arquitectura híbrida de **5 Status Checks Obligatorios** respaldados por el Ruleset de GitHub (`id: 22495789`):
-
-- **Archivo Fuente Mermaid:** [`mermaid diagramas/09_arquitectura_integracion_google_jules_sandbox.mmd`](mermaid%20diagramas/09_arquitectura_integracion_google_jules_sandbox.mmd)
-- **Vector SVG de Alta Resolución:** [`mermaid diagramas/09_arquitectura_integracion_google_jules_sandbox.svg`](mermaid%20diagramas/09_arquitectura_integracion_google_jules_sandbox.svg)
-
-```mermaid
-flowchart TD
-    PR["Pull Request hacia 'main'"] --> FastCI["Capa 1: CI Rápido (Actions - 60s)\n1. Estático | 2. Unitario | 3. Funcional | 4. Regresión"]
-    PR --> JulesAudit["Capa 2: Sandbox de Jules (jules.google.com)\n5. Veredicto de Auditoría en Sandbox de Jules"]
-    FastCI & JulesAudit --> RulesetCheck{"¿Los 5 Status Checks\nestán en verde (SUCCESS)?"}
-    RulesetCheck -- "Sí" --> MergeAllowed["Fusión Permitida (Squash & Merge)"]
-    RulesetCheck -- "No" --> MergeBlocked["Fusión Bloqueada (HTTP 405 Method Not Allowed)"]
-```
-
-### 1. Los 5 Status Checks Requeridos en GitHub
-1. `Análisis Estático de App Móvil con Jules`: Compilación Kotlin y escaneo de vulnerabilidades OWASP Mobile.
-2. `Pruebas Unitarias y Cobertura de Ramas Móvil con Jules`: Ejecución de JUnit en la JVM con reportes XML.
-3. `Pruebas Funcionales y Contratos Móviles con Jules`: Verificación de contratos Retrofit, cálculo de IGV 18% y costos fijos de envío.
-4. `Pruebas de Regresión y Estabilidad Móvil con Jules`: Estabilidad de modelos de dominio y compatibilidad hacia atrás.
-5. `Veredicto de Auditoría en Sandbox de Jules`: Evaluación autónoma ejecutada por el agente Jules en su contenedor en la nube ([`jules.google.com/session`](https://jules.google.com/session)).
-
-### 2. Flujo de Despacho y Procesamiento del Veredicto
-- **Despachador ([`.github/workflows/jules-sandbox-audit.yml`](.github/workflows/jules-sandbox-audit.yml)):**
-  - Al abrirse o actualizarse un PR, marca `Veredicto de Auditoría en Sandbox de Jules` en estado `PENDING (🟡)`.
-  - Crea un Issue en GitHub con la etiqueta `jules` y metadatos estructurados ocultos (`PR_NUMBER`, `COMMIT_SHA`, `BRANCH`).
-  - La GitHub App de Google Jules detecta el Issue y abre una sesión en su máquina virtual en la nube.
-- **Procesador de Veredicto ([`.github/workflows/jules-verdict-listener.yml`](.github/workflows/jules-verdict-listener.yml)):**
-  - Escucha comentarios en el Issue de auditoría emitidos por Jules.
-  - Al detectar `VEREDICTO: APROBADO`, actualiza el Status Check a `SUCCESS (🟢)` y notifica al PR.
-  - Al detectar `VEREDICTO: RECHAZADO`, actualiza a `FAILURE (🔴)` con el reporte de hallazgos y correcciones necesarias.
-
-### 3. Tolerancia a Fallos, Timeouts y Monitoreo Asíncrono
-- **Watchdog de Sondeo Seguro:** El despachador ejecuta un ciclo de sondeo de hasta 10 minutos.
-- **Detección de Fallos Asíncronos:** Si Jules no responde en 10 minutos (por repositorios no autorizados en "Configure repo", límite de cuota diaria de 100 sesiones alcanzado, o caídas de conectividad):
-  - Registra un reporte diagnóstico completo en los logs de GitHub Actions.
-  - Marca el check como `FAILURE (🔴)` para mantener el PR protegido.
-  - Publica en el PR una guía de remediación paso a paso con los enlaces directos a `jules.google.com/session`.
-- **Reintento Manual sin Nuevos Commits:** Basta con agregar la etiqueta `reintentar-jules` al PR o ejecutar el workflow mediante `workflow_dispatch`.
-
----
 
 ## Misión de la Inteligencia Artificial y Requerimientos Semanales
 La inteligencia artificial actuará como desarrollador móvil senior encargado de codificar, refactorizar y verificar cada componente técnico de la aplicación. Su responsabilidad consiste en cumplir rigurosamente los siguientes requerimientos técnicos organizados cronológicamente por semanas y estructurados en tres categorías fundamentales: Capa Visual y Experiencia de Usuario, Lógica de Negocio y Servicios de Arquitectura, y Persistencia, Infraestructura y Configuración. Debe marcar con una equis cada casilla completada de forma verificable en el código fuente.
