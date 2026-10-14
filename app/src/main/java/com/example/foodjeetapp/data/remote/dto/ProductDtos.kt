@@ -9,11 +9,20 @@ import com.google.gson.annotations.SerializedName
  * Cumple con REQ-SEM07-LOG-02.
  */
 data class RestaurantDto(
+    @SerializedName("id") val id: Int? = null,
     @SerializedName("nombre") val nombre: String?,
-    @SerializedName("estado_afiliacion") val estadoAfiliacion: String?,
-    @SerializedName("qr_pago") val qrPago: String?,
-    @SerializedName("tiempo_entrega") val tiempoEntrega: String?,
-    @SerializedName("calificacion_promedio") val calificacionPromedio: Double?
+    @SerializedName("descripcion") val descripcion: String? = null,
+    @SerializedName("direccion") val direccion: String? = null,
+    @SerializedName("latitud") val latitud: Double? = null,
+    @SerializedName("longitud") val longitud: Double? = null,
+    @SerializedName("estado_afiliacion") val estadoAfiliacion: String? = null,
+    @SerializedName("qr_pago") val qrPago: String? = null,
+    @SerializedName("tiempo_entrega") val tiempoEntrega: String? = null,
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null
+)
+
+data class ConfigResponseDto(
+    @SerializedName("googleMapsApiKey") val googleMapsApiKey: String? = null
 )
 
 data class ProductDto(

@@ -29,6 +29,8 @@ interface OrderRepository {
     suspend fun getAllAdminOrders(): Result<List<AdminOrderDto>>
     suspend fun advanceOrderStatus(orderId: Int, nextStatus: String): Result<Unit>
     suspend fun updateOrderReview(orderId: String, stars: Int, comment: String): Result<Unit>
+    suspend fun getPublicConfig(): Result<ConfigResponseDto>
+    suspend fun getRestaurants(): Result<List<RestaurantDto>>
 }
 
 /**
@@ -89,11 +91,16 @@ class OrderRepositoryImpl(
                     ?: addressesResponse.body()!!.first()
                 addressId = defaultAddress.id
             } else {
-                // Si el usuario aún no tiene dirección registrada en PostgreSQL, crear la primera
+                // Si el usuario aún no tiene dirección registrada en PostgreSQL, crear la primera con coordenadas
+                val deliveryAddressText = order.direccionEntrega?.takeIf { it.isNotBlank() } ?: "Av. Principal 123, Miraflores, Lima"
+                val deliveryLat = order.latitudEntrega ?: -12.1218
+                val deliveryLon = order.longitudEntrega ?: -77.0298
                 val newAddressResponse = apiService.createAddress(
                     CreateAddressRequestDto(
-                        direccionDetallada = "Av. Principal 123, Miraflores, Lima",
-                        referencia = "Cerca al parque",
+                        direccionDetallada = deliveryAddressText,
+                        referencia = "Registrado desde la app móvil FoodJet",
+                        latitud = deliveryLat,
+                        longitud = deliveryLon,
                         esPredeterminada = true
                     )
                 )
@@ -211,6 +218,32 @@ class OrderRepositoryImpl(
             }
         } catch (e: Exception) {
             Result.failure(Exception("Falla de conexión al enviar la reseña: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun getPublicConfig(): Result<ConfigResponseDto> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getConfig()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al obtener configuración pública (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Falla de conexión al obtener configuración: ${e.localizedMessage}", e))
+        }
+    }
+
+    override suspend fun getRestaurants(): Result<List<RestaurantDto>> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getRestaurants()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al consultar locales (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Falla de conexión al consultar locales: ${e.localizedMessage}", e))
         }
     }
 }

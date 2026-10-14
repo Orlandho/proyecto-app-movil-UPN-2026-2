@@ -53,6 +53,19 @@ data class TransactionDto(
     @SerializedName("estado_pago") val estadoPago: String?
 )
 
+data class OrderStatusHistoryDto(
+    @SerializedName("estado") val estado: String?,
+    @SerializedName("fecha") val fecha: String?,
+    @SerializedName("origen") val origen: String?
+)
+
+data class TrackingProgressDto(
+    @SerializedName("posicion") val posicion: List<Double>? = null,
+    @SerializedName("avance") val avance: Double? = null,
+    @SerializedName("restante_metros") val restanteMetros: Int? = null,
+    @SerializedName("llegada_estimada") val llegadaEstimada: String? = null
+)
+
 data class OrderResponseDto(
     @SerializedName("id") val id: Int,
     @SerializedName("user_id") val userId: Int,
@@ -64,9 +77,19 @@ data class OrderResponseDto(
     @SerializedName("estado") val estado: String,
     @SerializedName("fecha") val fecha: String,
     @SerializedName("Restaurant") val restaurant: RestaurantDto?,
+    @SerializedName("DeliveryAddress") val deliveryAddress: AddressDto? = null,
     @SerializedName("Review") val review: ReviewDto?,
     @SerializedName("Transaction") val transaction: TransactionDto?,
-    @SerializedName("OrderItem") val orderItems: List<OrderItemDetailDto>?
+    @SerializedName("OrderItem") val orderItems: List<OrderItemDetailDto>?,
+    @SerializedName("ruta") val ruta: List<List<Double>>? = null,
+    @SerializedName("distancia_metros") val distanciaMetros: Double? = null,
+    @SerializedName("eta_minutos") val etaMinutos: Int? = null,
+    @SerializedName("repartidor_lat") val repartidorLat: Double? = null,
+    @SerializedName("repartidor_lon") val repartidorLon: Double? = null,
+    @SerializedName("plan_tiempos") val planTiempos: Map<String, Any>? = null,
+    @SerializedName("historial") val historial: List<OrderStatusHistoryDto>? = null,
+    @SerializedName("seguimiento") val seguimiento: TrackingProgressDto? = null,
+    @SerializedName("servidor_ahora") val servidorAhora: String? = null
 ) {
     fun toDomain(): OrderRecord {
         val domainStatus = when (estado.lowercase().trim()) {
@@ -103,6 +126,23 @@ data class OrderResponseDto(
             else -> "Pago Registrado"
         }
 
+        val routePoints = ruta?.mapNotNull { coords ->
+            if (coords.size >= 2) GeoPoint(coords[0], coords[1]) else null
+        } ?: emptyList()
+
+        val historyEntries = historial?.mapNotNull { h ->
+            if (h.estado != null) {
+                OrderHistoryEntry(
+                    estado = h.estado,
+                    fecha = h.fecha ?: "",
+                    origen = h.origen ?: "sistema"
+                )
+            } else null
+        } ?: emptyList()
+
+        val currentRepartidorLat = seguimiento?.posicion?.getOrNull(0) ?: repartidorLat
+        val currentRepartidorLon = seguimiento?.posicion?.getOrNull(1) ?: repartidorLon
+
         return OrderRecord(
             id = "FJ-$id",
             fecha = fecha.take(10),
@@ -115,7 +155,23 @@ data class OrderResponseDto(
             paymentMethod = methodLabel,
             reviewStars = review?.puntuacion,
             reviewComment = review?.comentario,
-            numericId = id
+            numericId = id,
+            direccionEntrega = deliveryAddress?.direccionDetallada,
+            latitudEntrega = deliveryAddress?.latitud,
+            longitudEntrega = deliveryAddress?.longitud,
+            restauranteNombre = restaurant?.nombre ?: "FoodJet",
+            restauranteLatitud = restaurant?.latitud,
+            restauranteLongitud = restaurant?.longitud,
+            restauranteDireccion = restaurant?.direccion,
+            repartidorLat = currentRepartidorLat,
+            repartidorLon = currentRepartidorLon,
+            etaMinutos = etaMinutos,
+            distanciaMetros = distanciaMetros,
+            avanceReparto = seguimiento?.avance,
+            restanteMetros = seguimiento?.restanteMetros,
+            llegadaEstimada = seguimiento?.llegadaEstimada,
+            historialEstados = historyEntries,
+            rutaPuntos = routePoints
         )
     }
 }

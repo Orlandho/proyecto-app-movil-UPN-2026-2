@@ -190,7 +190,8 @@ fun FoodJetApp(
                         initialName = activeUser.name,
                         initialPhone = activeUser.phone,
                         onBackToMenu = { currentRoute = "home" },
-                        onConfirmOrder = { method, total, cuponId ->
+                        onConfirmOrder = { _, _, _ -> },
+                        onConfirmOrderWithDetails = { method, total, cuponId, addressText, lat, lon ->
                             if (method == "wallet") {
                                 pendingWalletCouponId = cuponId
                                 pendingWalletTotal = total
@@ -205,7 +206,10 @@ fun FoodJetApp(
                                     subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
                                     impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
                                     total = total,
-                                    paymentMethod = method
+                                    paymentMethod = method,
+                                    direccionEntrega = addressText,
+                                    latitudEntrega = lat,
+                                    longitudEntrega = lon
                                 )
                                 orderViewModel.createOrder(
                                     order = newOrder,

@@ -54,6 +54,15 @@ interface FoodJetApiService {
     @POST("addresses")
     suspend fun createAddress(@Body body: CreateAddressRequestDto): Response<AddressDto>
 
+    @PUT("addresses/{id}")
+    suspend fun updateAddress(
+        @Path("id") id: Int,
+        @Body body: UpdateAddressRequestDto
+    ): Response<AddressDto>
+
+    @DELETE("addresses/{id}")
+    suspend fun deleteAddress(@Path("id") id: Int): Response<DeleteAddressResponseDto>
+
     // 5. Calificaciones y Reseñas
     @POST("reviews")
     suspend fun createReview(@Body body: CreateReviewRequestDto): Response<CreateReviewResponseDto>
@@ -68,4 +77,15 @@ interface FoodJetApiService {
     // 7. Verificación de Estudiante
     @POST("users/verify-student")
     suspend fun verifyStudent(): Response<VerifyStudentResponseDto>
+
+    // 8. Configuración Pública del Sistema (Google Maps, etc.)
+    @GET("config")
+    suspend fun getConfig(): Response<ConfigResponseDto>
+
+    // 9. Gestión y Consulta de Restaurantes / Locales
+    @GET("restaurants")
+    suspend fun getRestaurants(): Response<List<RestaurantDto>>
+
+    @GET("restaurants/{id}")
+    suspend fun getRestaurantById(@Path("id") id: Int): Response<RestaurantDto>
 }

@@ -47,6 +47,17 @@ enum class OrderStatus(val label: String, val stepIndex: Int = 1) {
     val isCancelable: Boolean get() = this == PENDIENTE || this == CONFIRMADO
 }
 
+data class GeoPoint(
+    val latitud: Double,
+    val longitud: Double
+)
+
+data class OrderHistoryEntry(
+    val estado: String,
+    val fecha: String,
+    val origen: String
+)
+
 data class OrderRecord(
     val id: String,
     val fecha: String,
@@ -60,7 +71,23 @@ data class OrderRecord(
     val paymentMethod: String = "Efectivo",
     val reviewStars: Int? = null,
     val reviewComment: String? = null,
-    val numericId: Int = id.removePrefix("FJ-").toIntOrNull() ?: 0
+    val numericId: Int = id.removePrefix("FJ-").toIntOrNull() ?: 0,
+    val direccionEntrega: String? = null,
+    val latitudEntrega: Double? = null,
+    val longitudEntrega: Double? = null,
+    val restauranteNombre: String = "FoodJet",
+    val restauranteLatitud: Double? = null,
+    val restauranteLongitud: Double? = null,
+    val restauranteDireccion: String? = null,
+    val repartidorLat: Double? = null,
+    val repartidorLon: Double? = null,
+    val etaMinutos: Int? = null,
+    val distanciaMetros: Double? = null,
+    val avanceReparto: Double? = null,
+    val restanteMetros: Int? = null,
+    val llegadaEstimada: String? = null,
+    val historialEstados: List<OrderHistoryEntry> = emptyList(),
+    val rutaPuntos: List<GeoPoint> = emptyList()
 )
 
 data class UserProfile(

@@ -31,12 +31,15 @@ fun CheckoutScreen(
     initialPhone: String,
     onBackToMenu: () -> Unit,
     onConfirmOrder: (paymentMethod: String, total: Double, cuponId: Int?) -> Unit,
+    onConfirmOrderWithDetails: (paymentMethod: String, total: Double, cuponId: Int?, address: String, lat: Double, lon: Double) -> Unit = { m, t, c, _, _, _ -> onConfirmOrder(m, t, c) },
     modifier: Modifier = Modifier
 ) {
     var name by remember { mutableStateOf(initialName) }
     var phone by remember { mutableStateOf(initialPhone) }
     var address by remember { mutableStateOf("Av. Principal 123, Miraflores, Lima") }
     var reference by remember { mutableStateOf("Frente al parque central, departamento 402") }
+    var deliveryLat by remember { mutableStateOf(-12.1218) }
+    var deliveryLon by remember { mutableStateOf(-77.0298) }
 
     // Validación reactiva (REQ-SEM04-VIS-01)
     val isNameValid = name.trim().length >= 3
@@ -163,6 +166,84 @@ fun CheckoutScreen(
                             label = { Text("Referencia (Opcional)") },
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Punto en Mapa y Coordenadas para Reparto Simulado (FoodJet Web)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.PinDrop,
+                                            contentDescription = null,
+                                            tint = FoodJetPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            "Coordenadas para Reparto",
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = FoodJetPrimary.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "%.4f, %.4f".format(deliveryLat, deliveryLon),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Selecciona una zona de cobertura en Lima:",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    listOf(
+                                        Triple("Miraflores", -12.1218, -77.0298),
+                                        Triple("San Isidro", -12.0970, -77.0340),
+                                        Triple("Jesús María", -12.0740, -77.0490)
+                                    ).forEach { (district, lat, lon) ->
+                                        val isSelected = deliveryLat == lat && deliveryLon == lon
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                deliveryLat = lat
+                                                deliveryLon = lon
+                                                address = when (district) {
+                                                    "Miraflores" -> "Av. Principal 123, Miraflores, Lima"
+                                                    "San Isidro" -> "Av. Javier Prado Este 450, San Isidro, Lima"
+                                                    else -> "Av. Salaverry 2020, Jesús María, Lima"
+                                                }
+                                            },
+                                            label = { Text(district, fontSize = 11.sp) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -358,7 +439,16 @@ fun CheckoutScreen(
 
                         // Botón Confirmar Pedido
                         Button(
-                            onClick = { onConfirmOrder(paymentMethod, total, couponAppliedId) },
+                            onClick = {
+                                onConfirmOrderWithDetails(
+                                    paymentMethod,
+                                    total,
+                                    couponAppliedId,
+                                    address,
+                                    deliveryLat,
+                                    deliveryLon
+                                )
+                            },
                             enabled = isFormValid,
                             modifier = Modifier
                                 .fillMaxWidth()
