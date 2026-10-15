@@ -15,5 +15,19 @@ data class AddressDto(
 data class CreateAddressRequestDto(
     @SerializedName("direccion_detallada") val direccionDetallada: String,
     @SerializedName("referencia") val referencia: String? = null,
+    @SerializedName("latitud") val latitud: Double? = null,
+    @SerializedName("longitud") val longitud: Double? = null,
     @SerializedName("es_predeterminada") val esPredeterminada: Boolean = true
+)
+
+data class UpdateAddressRequestDto(
+    @SerializedName("direccion_detallada") val direccionDetallada: String? = null,
+    @SerializedName("referencia") val referencia: String? = null,
+    @SerializedName("latitud") val latitud: Double? = null,
+    @SerializedName("longitud") val longitud: Double? = null,
+    @SerializedName("es_predeterminada") val esPredeterminada: Boolean? = null
+)
+
+data class DeleteAddressResponseDto(
+    @SerializedName("message") val message: String?
 )

@@ -207,4 +207,19 @@ class FoodJetDomainUnitTest {
         assertEquals(1, domain.items.size)
         assertEquals("Hamburguesa Doble", domain.items[0].product.nombre)
     }
+
+    @Test
+    fun testGeoPointAndRestaurantLocationMapping() {
+        val geo = com.example.foodjeetapp.data.model.GeoPoint(latitud = -12.1218, longitud = -77.0298)
+        assertEquals(-12.1218, geo.latitud, 0.0001)
+        assertEquals(-77.0298, geo.longitud, 0.0001)
+
+        val history = com.example.foodjeetapp.data.model.OrderHistoryEntry(
+            estado = "en_camino",
+            fecha = "2026-10-14T02:00:00Z",
+            origen = "simulador"
+        )
+        assertEquals("en_camino", history.estado)
+        assertEquals("simulador", history.origen)
+    }
 }
