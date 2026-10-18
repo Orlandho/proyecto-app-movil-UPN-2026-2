@@ -398,11 +398,15 @@ private fun ImagenRemota(url: String, descripcion: String) {
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = false
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
                 setBackgroundColor(android.graphics.Color.WHITE)
                 val src = url.replace("\"", "%22")
-                val html = "<html><body style=\"margin:0;display:flex;align-items:center;" +
-                    "justify-content:center;height:100vh;background:#fff\">" +
-                    "<img src=\"$src\" style=\"max-width:100%;max-height:100%\"></body></html>"
+                // Los SVG de los QR solo traen viewBox: con un ancho explícito el
+                // navegador calcula el alto; con max-width/100vh se quedaba en cero.
+                val html = "<html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>" +
+                    "<body style=\"margin:0;padding:6px;background:#fff\">" +
+                    "<img src=\"$src\" style=\"display:block;width:100%;height:auto\"></body></html>"
                 loadDataWithBaseURL(url, html, "text/html", "utf-8", null)
             }
         },

@@ -363,7 +363,7 @@ fun FoodJetApp(
                             orderViewModel.advanceOrderStatus(
                                 orderId = orderId,
                                 nextStatus = nextStatus,
-                                onSuccess = { avisar("Pedido #$orderId actualizado a $nextStatus") },
+                                onSuccess = { avisar("Pedido #$orderId actualizado a ${nextStatus.replace('_', ' ')}") },
                                 onError = ::avisar
                             )
                         },

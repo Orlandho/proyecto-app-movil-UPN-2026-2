@@ -19,8 +19,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ServiceLocator.initialize(this)
-        // Tras un giro de pantalla el NavHost ya restauró la ruta: no se repite.
-        if (savedInstanceState == null) pedidoSolicitado.value = IntentsFoodJet.pedidoDe(intent)
+        atender(intent)
         enableEdgeToEdge()
         setContent {
             FoodJetTheme {
@@ -36,6 +35,16 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        IntentsFoodJet.pedidoDe(intent)?.let { pedidoSolicitado.value = it }
+        atender(intent)
+    }
+
+    /**
+     * Lee el pedido del Intent y quita el extra: tras un giro de pantalla la
+     * Activity se recrea con el mismo Intent y no debe volver a navegar.
+     */
+    private fun atender(intent: Intent?) {
+        val pedido = IntentsFoodJet.pedidoDe(intent) ?: return
+        intent?.removeExtra(IntentsFoodJet.EXTRA_PEDIDO_ID)
+        pedidoSolicitado.value = pedido
     }
 }

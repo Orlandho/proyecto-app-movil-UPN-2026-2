@@ -420,6 +420,8 @@ fun CheckoutScreen(
                             centroInicial = punto ?: puntoLocal,
                             datos = DatosMapa(
                                 restaurante = puntoLocal?.let { PuntoMapa(it, local?.nombre ?: "Local", local?.direccion.orEmpty()) },
+                                // Con Google Maps el pin fijo del centro ya marca la entrega; el esquema necesita el punto.
+                                destino = punto?.takeIf { mapaDisponible == false }?.let { PuntoMapa(it, "Entrega", address) },
                                 cobertura = punto?.let { p -> precisionGps?.takeIf { it > 0 }?.let { p to it } }
                             ),
                             onCentroCambiado = { centro ->

@@ -6,6 +6,7 @@ import android.webkit.WebView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -349,19 +350,21 @@ fun RutaEsquematica(datos: DatosMapa, modifier: Modifier = Modifier) {
         val naranja = FoodJetPrimary
         val oscuro = FoodJetDark
         val verde = FoodJetSuccess
-        Canvas(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        // Márgenes para que la leyenda (arriba) y el aviso (abajo) no tapen ningún punto.
+        Canvas(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 40.dp, bottom = 48.dp)) {
             val minLat = puntos.minOf { it.latitud }
             val maxLat = puntos.maxOf { it.latitud }
             val minLon = puntos.minOf { it.longitud }
             val maxLon = puntos.maxOf { it.longitud }
+            // Proyección centrada: un punto solo queda en el medio, no en una esquina.
             val rangoLat = (maxLat - minLat).takeIf { it > 1e-9 } ?: 1e-3
             val rangoLon = (maxLon - minLon).takeIf { it > 1e-9 } ?: 1e-3
             val escala = minOf(size.width / rangoLon.toFloat(), size.height / rangoLat.toFloat())
-            val ancho = rangoLon.toFloat() * escala
-            val alto = rangoLat.toFloat() * escala
+            val centroLat = (minLat + maxLat) / 2
+            val centroLon = (minLon + maxLon) / 2
             fun xy(p: GeoPoint) = Offset(
-                (size.width - ancho) / 2 + ((p.longitud - minLon).toFloat() * escala),
-                (size.height - alto) / 2 + ((maxLat - p.latitud).toFloat() * escala)
+                size.width / 2 + ((p.longitud - centroLon).toFloat() * escala),
+                size.height / 2 + ((centroLat - p.latitud).toFloat() * escala)
             )
             fun trazo(ruta: List<GeoPoint>, color: Color) {
                 if (ruta.size < 2) return
@@ -378,6 +381,23 @@ fun RutaEsquematica(datos: DatosMapa, modifier: Modifier = Modifier) {
             datos.repartidor?.let {
                 drawCircle(Color.White, 13f, xy(it.punto))
                 drawCircle(verde, 10f, xy(it.punto))
+            }
+        }
+        // Leyenda: sin calles de fondo, los colores son lo único que distingue los puntos.
+        Row(
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            listOfNotNull(
+                datos.restaurante?.let { oscuro to "Local" },
+                datos.destino?.let { naranja to "Entrega" },
+                datos.repartidor?.let { verde to "Repartidor" }
+            ).forEach { (color, etiqueta) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+                    Spacer(Modifier.width(4.dp))
+                    Text(etiqueta, fontSize = 11.sp, color = FoodJetGray)
+                }
             }
         }
     }

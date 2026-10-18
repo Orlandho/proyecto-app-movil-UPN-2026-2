@@ -236,6 +236,9 @@ class OrderViewModel(
                 loadOrders()
                 onSuccess()
             }.onFailure { error ->
+                // Lo normal es un 409: el simulador o alguien más ya movió el
+                // pedido. Se recarga para que el panel muestre el estado real.
+                loadAdminOrders()
                 onError(error.message ?: "Error al avanzar estado del pedido")
             }
         }
