@@ -23,22 +23,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.foodjeetapp.data.model.OrderRecord
+import com.example.foodjeetapp.data.remote.ServidorFoodJet
 import com.example.foodjeetapp.ui.components.StarRatingBar
 import com.example.foodjeetapp.ui.theme.FoodJetDark
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
+import android.webkit.WebView
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 @Composable
 fun LoginDialog(
+    servidor: ServidorFoodJet,
+    onCambiarServidor: (ServidorFoodJet) -> Unit,
     onDismiss: () -> Unit,
     onLoginSuccess: (email: String, password: String) -> Unit,
     onSwitchToRegister: () -> Unit
 ) {
-    var email by remember { mutableStateOf("cliente1@mail.com") }
-    var password by remember { mutableStateOf("Cliente123!") }
-    val isFormValid = email.contains("@") && password.length >= 4
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val isFormValid = android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() && password.length >= 4
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -61,13 +70,15 @@ fun LoginDialog(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Iniciar Sesión", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Spacer(modifier = Modifier.height(16.dp))
+                SelectorServidor(servidor = servidor, onCambiar = onCambiarServidor)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { email = it.trim() },
                     label = { Text("Email") },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -280,20 +291,28 @@ fun ReviewDialog(
     }
 }
 
+
+/**
+ * Pago con billetera (Yape/Plin). Muestra el QR real del local, que el
+ * backend da en `qr_pago`. Como en la web, el pago es simulado: a los cinco
+ * segundos se da por confirmado y se registra el pedido.
+ */
 @Composable
 fun QrPaymentDialog(
-    restaurantName: String = "Burger King",
+    restaurantName: String,
+    qrUrl: String?,
     onDismiss: () -> Unit,
     onPaymentConfirmed: () -> Unit
 ) {
     var countdown by remember { mutableStateOf(5) }
+    val confirmar by rememberUpdatedState(onPaymentConfirmed)
 
     LaunchedEffect(Unit) {
         while (countdown > 0) {
             delay(1000)
             countdown--
         }
-        onPaymentConfirmed()
+        confirmar()
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -321,31 +340,24 @@ fun QrPaymentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Código QR visual
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
                     border = androidx.compose.foundation.BorderStroke(2.dp, FoodJetPrimary),
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier.size(200.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCode,
-                            contentDescription = "Código QR",
-                            tint = Color.Black,
-                            modifier = Modifier.size(150.dp)
-                        )
+                    if (qrUrl != null) {
+                        ImagenRemota(url = qrUrl, descripcion = "Código QR de pago de $restaurantName")
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("Este local no tiene QR de pago", fontSize = 12.sp, textAlign = TextAlign.Center)
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.5.dp,
@@ -353,7 +365,7 @@ fun QrPaymentDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Esperando confirmación... (${countdown}s)",
+                        text = "Esperando confirmación de pago... (${countdown}s)",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -363,12 +375,76 @@ fun QrPaymentDialog(
 
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text("Cancelar Pago", color = Color.Red)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Imagen servida por la web de FoodJet. Los QR son SVG, que Coil no decodifica
+ * sin coil-svg (otra dependencia de Gradle); un WebView mínimo sí los dibuja.
+ */
+@Composable
+private fun ImagenRemota(url: String, descripcion: String) {
+    AndroidView(
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics { contentDescription = descripcion },
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = false
+                setBackgroundColor(android.graphics.Color.WHITE)
+                val src = url.replace("\"", "%22")
+                val html = "<html><body style=\"margin:0;display:flex;align-items:center;" +
+                    "justify-content:center;height:100vh;background:#fff\">" +
+                    "<img src=\"$src\" style=\"max-width:100%;max-height:100%\"></body></html>"
+                loadDataWithBaseURL(url, html, "text/html", "utf-8", null)
+            }
+        },
+        onRelease = { it.destroy() }
+    )
+}
+
+/** Elige contra qué servidor trabaja la app. Se guarda con DataStore. */
+@Composable
+fun SelectorServidor(
+    servidor: ServidorFoodJet,
+    onCambiar: (ServidorFoodJet) -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { abierto = !abierto }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Servidor: ${servidor.etiqueta}", fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Icon(if (abierto) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
+        }
+        if (abierto) {
+            ServidorFoodJet.entries.forEach { opcion ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                ) {
+                    RadioButton(selected = opcion == servidor, onClick = { onCambiar(opcion) })
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(opcion.etiqueta, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(opcion.descripcion, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Text(
+                "Cambiar de servidor cierra la sesión.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp)
+            )
         }
     }
 }
@@ -379,14 +455,14 @@ fun MiCuentaDialog(
     userEmail: String,
     isStudent: Boolean,
     isAdmin: Boolean = false,
+    servidor: ServidorFoodJet,
+    onCambiarServidor: (ServidorFoodJet) -> Unit,
+    onAbrirWeb: () -> Unit,
     onVerifyStudent: () -> Unit,
     onOpenAdminDashboard: () -> Unit = {},
     onLogout: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var isVerifying by remember { mutableStateOf(false) }
-    var photoSelected by remember { mutableStateOf(false) }
-
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(20.dp),
@@ -394,7 +470,9 @@ fun MiCuentaDialog(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -412,7 +490,7 @@ fun MiCuentaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Estado de Estudiante
+                // Estado de Estudiante (lo decide el backend: es_estudiante)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -436,7 +514,8 @@ fun MiCuentaDialog(
                                 color = if (isStudent) FoodJetSuccess else MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (isStudent) "Acceso a descuentos del 10% al 20% en tus pedidos" else "Sube tu carnet universitario para obtener descuentos",
+                                text = if (isStudent) "Los productos con descuento de estudiante ya te salen rebajados"
+                                else "Verifica tu condición de estudiante para ver los precios con descuento",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -445,35 +524,16 @@ fun MiCuentaDialog(
                 }
 
                 if (!isStudent) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    OutlinedButton(
-                        onClick = { photoSelected = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onVerifyStudent,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
                     ) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (photoSelected) "Carnet seleccionado ✓" else "Subir foto del carnet")
-                    }
-
-                    if (photoSelected) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = {
-                                isVerifying = true
-                                onVerifyStudent()
-                            },
-                            enabled = !isVerifying,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
-                        ) {
-                            if (isVerifying) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black)
-                            } else {
-                                Text("Verificar Estudiante")
-                            }
-                        }
+                        Text("Verificar Estudiante")
                     }
                 }
 
@@ -481,11 +541,8 @@ fun MiCuentaDialog(
                 if (isAdmin) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Button(
-                        onClick = {
-                            onDismiss()
-                            onOpenAdminDashboard()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onOpenAdminDashboard,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = FoodJetDark, contentColor = Color.White)
                     ) {
@@ -495,11 +552,21 @@ fun MiCuentaDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                // Intent implícito: lo abre el navegador que tenga el teléfono.
+                TextButton(onClick = onAbrirWeb, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Abrir FoodJet en el navegador")
+                }
+
+                SelectorServidor(servidor = servidor, onCambiar = onCambiarServidor)
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedButton(
                     onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))

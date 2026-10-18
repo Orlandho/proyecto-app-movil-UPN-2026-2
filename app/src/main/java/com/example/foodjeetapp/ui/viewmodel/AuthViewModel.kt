@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.data.model.UserProfile
+import com.example.foodjeetapp.data.remote.RetrofitClient
+import com.example.foodjeetapp.data.remote.ServidorFoodJet
 import com.example.foodjeetapp.data.repository.UserRepository
+import com.example.foodjeetapp.data.repository.ValidacionSesion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +30,13 @@ class AuthViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _servidor = MutableStateFlow(RetrofitClient.servidor)
+    val servidor: StateFlow<ServidorFoodJet> = _servidor.asStateFlow()
+
+    /** El servidor rechazó la sesión guardada (token caducado o de otro servidor). */
+    private val _sesionRechazada = MutableStateFlow(false)
+    val sesionRechazada: StateFlow<Boolean> = _sesionRechazada.asStateFlow()
+
     init {
         // Observar la sesión persistida en DataStore
         viewModelScope.launch {
@@ -34,6 +44,25 @@ class AuthViewModel(
                 _currentUser.value = profile
                 _isLoggedIn.value = profile != null
             }
+        }
+        viewModelScope.launch {
+            if (userRepository.validarSesion() == ValidacionSesion.RECHAZADA) _sesionRechazada.value = true
+        }
+    }
+
+    fun sesionRechazadaAtendida() {
+        _sesionRechazada.value = false
+    }
+
+    /** Cambia de servidor. Cierra la sesión: el token de un servidor no vale en otro. */
+    fun cambiarServidor(nuevo: ServidorFoodJet, onDone: () -> Unit) {
+        if (nuevo == _servidor.value) return
+        viewModelScope.launch {
+            ServiceLocator.cambiarServidor(nuevo)
+            _servidor.value = nuevo
+            _currentUser.value = null
+            _isLoggedIn.value = false
+            onDone()
         }
     }
 

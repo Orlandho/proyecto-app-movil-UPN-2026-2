@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mapa FoodJet</title>
+<style>
+  html, body, #mapa { height: 100%; margin: 0; padding: 0; background: #F8F9FA; }
+  body { font-family: sans-serif; }
+  .info { font-size: 13px; color: #1A1A1A; max-width: 220px; }
+  .info b { display: block; margin-bottom: 2px; }
+  .info span { color: #6C757D; }
+</style>
+</head>
+<body>
+<div id="mapa"></div>
+<script>
+/*
+ * Página del mapa de la app móvil FoodJet.
+ *
+ * La carga MapaFoodJet.kt dentro de un WebView con loadDataWithBaseURL y el
+ * origen de la web (https://foodjet.asen.pe/ o http://localhost:8081/), que es
+ * el que autoriza la restricción por sitio web de la key de Google Maps.
+ *
+ * Habla con Kotlin por el objeto "Android" (addJavascriptInterface):
+ *   Android.listo()            el mapa cargó (ya hay teselas)
+ *   Android.keyRechazada()     Google rechazó la key: probar la siguiente
+ *   Android.noDisponible(m)    no hay mapa (sin key, sin red, sin respuesta)
+ *   Android.centro(lat, lng)   el usuario dejó de mover el mapa (modo selección)
+ * y Kotlin le habla por window.FoodJet.*.
+ */
+(function () {
+  var NARANJA = '#F39D4A';
+  var OSCURO = '#1A1A1A';
+  var TIEMPO_CARGA_MS = 12000;
+  var MARGEN_RECHAZO_MS = 2500;
+
+  var mapa = null;
+  var modo = 'seguimiento';
+  var marcadores = {};
+  var info = null;
+  var lineas = [];
+  var circulo = null;
+  var encuadreHecho = false;
+  var pendiente = null;
+
+  function avisar(fn) {
+    try { if (window.Android && Android[fn]) Android[fn].apply(Android, [].slice.call(arguments, 1)); } catch (e) {}
+  }
+
+  function icono(color, escala) {
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: escala || 9,
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 3
+    };
+  }
+
+  function pin(color) {
+    return {
+      path: 'M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z',
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 1.5,
+      scale: 1.6,
+      anchor: new google.maps.Point(12, 22)
+    };
+  }
+
+  function escapar(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function ponerMarcador(clave, punto, estilo) {
+    if (!punto) {
+      if (marcadores[clave]) { marcadores[clave].setMap(null); delete marcadores[clave]; }
+      return;
+    }
+    var pos = { lat: punto.lat, lng: punto.lng };
+    var m = marcadores[clave];
+    if (!m) {
+      m = new google.maps.Marker({ map: mapa, position: pos, icon: estilo, title: punto.titulo || '' });
+      m.addListener('click', function () {
+        info.setContent('<div class="info"><b>' + escapar(m.foodjetTitulo) + '</b><span>' + escapar(m.foodjetDetalle) + '</span></div>');
+        info.open({ map: mapa, anchor: m });
+      });
+      marcadores[clave] = m;
+    } else {
+      m.setPosition(pos);
+    }
+    m.foodjetTitulo = punto.titulo || '';
+    m.foodjetDetalle = punto.detalle || '';
+  }
+
+  function limpiarLineas() {
+    lineas.forEach(function (l) { l.setMap(null); });
+    lineas = [];
+  }
+
+  function aCamino(lista) {
+    return (lista || []).map(function (p) { return { lat: p[0], lng: p[1] }; });
+  }
+
+  function aplicar(d) {
+    ponerMarcador('restaurante', d.restaurante, pin(OSCURO));
+    ponerMarcador('destino', d.destino, pin(NARANJA));
+    ponerMarcador('repartidor', d.repartidor, icono('#28A745', 8));
+
+    limpiarLineas();
+    if (d.pendiente && d.pendiente.length > 1) {
+      lineas.push(new google.maps.Polyline({
+        map: mapa, path: aCamino(d.pendiente), strokeColor: NARANJA, strokeOpacity: 0.95, strokeWeight: 5
+      }));
+    }
+    if (d.recorrida && d.recorrida.length > 1) {
+      lineas.push(new google.maps.Polyline({
+        map: mapa, path: aCamino(d.recorrida), strokeColor: '#6C757D', strokeOpacity: 0.6, strokeWeight: 5
+      }));
+    }
+
+    if (circulo) { circulo.setMap(null); circulo = null; }
+    if (d.cobertura && d.cobertura.radioMetros > 0) {
+      circulo = new google.maps.Circle({
+        map: mapa,
+        center: { lat: d.cobertura.lat, lng: d.cobertura.lng },
+        radius: d.cobertura.radioMetros,
+        strokeColor: NARANJA, strokeOpacity: 0.6, strokeWeight: 1,
+        fillColor: NARANJA, fillOpacity: 0.08, clickable: false
+      });
+    }
+
+    if (!encuadreHecho) { encuadrar(d); encuadreHecho = true; }
+  }
+
+  function encuadrar(d) {
+    d = d || window.FoodJet.ultimos || {};
+    var limites = new google.maps.LatLngBounds();
+    var hay = 0;
+    ['restaurante', 'destino', 'repartidor'].forEach(function (k) {
+      if (d[k]) { limites.extend({ lat: d[k].lat, lng: d[k].lng }); hay++; }
+    });
+    (d.pendiente || []).concat(d.recorrida || []).forEach(function (p) { limites.extend({ lat: p[0], lng: p[1] }); hay++; });
+    if (hay > 1) mapa.fitBounds(limites, 48);
+    else if (hay === 1) { mapa.setCenter(limites.getCenter()); mapa.setZoom(16); }
+  }
+
+  function crearMapa(cfg) {
+    mapa = new google.maps.Map(document.getElementById('mapa'), {
+      center: cfg.centro,
+      zoom: cfg.zoom || 15,
+      disableDefaultUI: true,
+      clickableIcons: false,
+      gestureHandling: 'greedy'
+    });
+    info = new google.maps.InfoWindow();
+    if (modo === 'seleccion') {
+      mapa.addListener('idle', function () {
+        var c = mapa.getCenter();
+        avisar('centro', c.lat(), c.lng());
+      });
+    }
+    if (pendiente) { aplicar(pendiente); pendiente = null; }
+  }
+
+  /*
+   * Carga Google Maps con una key. Google acepta descargar el script con una
+   * key inválida y la rechaza después, al crear el mapa (gm_authFailure). Una
+   * página no puede cambiar de key una vez cargado el script: si la rechaza,
+   * Kotlin vuelve a crear la página con la siguiente key de la cascada.
+   */
+  function cargarKey(key, cfg) {
+    var terminado = false;
+    function terminar(fn) {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(reloj);
+      fn();
+    }
+    var reloj = setTimeout(function () {
+      terminar(function () { avisar('noDisponible', 'Google Maps no respondió a tiempo'); });
+    }, TIEMPO_CARGA_MS);
+
+    var rechazada = false;
+    window.gm_authFailure = function () {
+      // Puede llegar incluso después de "listo": Kotlin pasa igual a la siguiente key.
+      if (rechazada) return;
+      rechazada = true;
+      terminado = true;
+      clearTimeout(reloj);
+      avisar('keyRechazada');
+    };
+    window.__foodjetListo = function () {
+      terminar(function () {
+        crearMapa(cfg);
+        // Las teselas no se cargan si la vista no se está dibujando (app en
+        // segundo plano), así que también vale un margen sin rechazo.
+        var avisado = false;
+        var marcarListo = function () {
+          if (avisado || rechazada) return;
+          avisado = true;
+          avisar('listo');
+        };
+        google.maps.event.addListenerOnce(mapa, 'tilesloaded', marcarListo);
+        setTimeout(marcarListo, MARGEN_RECHAZO_MS);
+      });
+    };
+
+    var s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) +
+      '&loading=async&callback=__foodjetListo&language=es&region=PE';
+    s.async = true;
+    s.onerror = function () {
+      terminar(function () { avisar('noDisponible', 'No se pudo descargar Google Maps'); });
+    };
+    document.head.appendChild(s);
+  }
+
+  window.FoodJet = {
+    ultimos: null,
+    iniciar: function (cfg) {
+      modo = cfg.modo || 'seguimiento';
+      if (!cfg.key) { avisar('noDisponible', 'El servidor no tiene key de Google Maps'); return; }
+      cargarKey(cfg.key, cfg);
+    },
+    datos: function (d) {
+      window.FoodJet.ultimos = d;
+      if (!mapa) { pendiente = d; return; }
+      aplicar(d);
+    },
+    zoom: function (delta) { if (mapa) mapa.setZoom(mapa.getZoom() + delta); },
+    encuadrar: function () { if (mapa) encuadrar(); },
+    irA: function (lat, lng, zoom) {
+      if (!mapa) return;
+      mapa.panTo({ lat: lat, lng: lng });
+      if (zoom) mapa.setZoom(zoom);
+    }
+  };
+})();
+</script>
+</body>
+</html>

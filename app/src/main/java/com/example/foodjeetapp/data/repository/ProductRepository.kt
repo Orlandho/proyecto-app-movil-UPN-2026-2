@@ -3,6 +3,7 @@ package com.example.foodjeetapp.data.repository
 import com.example.foodjeetapp.data.local.dao.ProductDao
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.PromotionSlide
+import com.example.foodjeetapp.data.remote.ErroresApi
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +56,7 @@ class ProductRepositoryImpl(
                 if (cached.isNotEmpty()) {
                     Result.success(cached.map { it.toDomain() })
                 } else {
-                    Result.failure(Exception("Error al cargar productos: ${response.code()} ${response.message()}"))
+                    Result.failure(Exception(ErroresApi.mensaje(response, "cargar el catálogo")))
                 }
             }
         } catch (e: Exception) {
@@ -64,7 +65,7 @@ class ProductRepositoryImpl(
             if (cached.isNotEmpty()) {
                 Result.success(cached.map { it.toDomain() })
             } else {
-                Result.failure(e)
+                Result.failure(Exception(ErroresApi.mensajeDeRed(e, "cargar el catálogo"), e))
             }
         }
     }

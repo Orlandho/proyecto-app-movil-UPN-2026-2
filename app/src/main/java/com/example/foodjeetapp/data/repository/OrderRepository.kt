@@ -1,7 +1,10 @@
 package com.example.foodjeetapp.data.repository
 
+import com.example.foodjeetapp.data.model.DeliverySelection
+import com.example.foodjeetapp.data.model.Geo
 import com.example.foodjeetapp.data.model.OrderRecord
-import com.example.foodjeetapp.data.model.OrderStatus
+import com.example.foodjeetapp.data.model.SavedAddress
+import com.example.foodjeetapp.data.remote.ErroresApi
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import com.example.foodjeetapp.data.remote.dto.*
 import kotlinx.coroutines.CoroutineDispatcher
@@ -21,7 +24,8 @@ interface OrderRepository {
     suspend fun getOrderById(orderId: Int): Result<OrderRecord>
     suspend fun createOrder(
         order: OrderRecord,
-        restauranteId: Int = 1,
+        entrega: DeliverySelection,
+        restauranteId: Int,
         metodoPago: String = "cash",
         cuponId: Int? = null
     ): Result<OrderRecord>
@@ -31,12 +35,35 @@ interface OrderRepository {
     suspend fun updateOrderReview(orderId: String, stars: Int, comment: String): Result<Unit>
     suspend fun getPublicConfig(): Result<ConfigResponseDto>
     suspend fun getRestaurants(): Result<List<RestaurantDto>>
+    suspend fun getRestaurant(id: Int): Result<RestaurantDto>
+    suspend fun getAddresses(): Result<List<SavedAddress>>
+}
+
+/**
+ * Busca entre las direcciones guardadas una equivalente a la elegida: mismo
+ * texto y, si se marcó un punto, a menos de [Geo.MISMA_UBICACION_M]. Es la
+ * misma regla que `buscarDireccionGuardada` de la web: si el pin se movió se
+ * crea otra dirección en vez de corregir la vieja, porque los pedidos
+ * anteriores apuntan a ella y su historial debe seguir diciendo dónde se
+ * entregaron.
+ */
+internal fun buscarDireccionGuardada(guardadas: List<SavedAddress>, entrega: DeliverySelection): SavedAddress? {
+    val normalizar = { texto: String -> texto.trim().replace(Regex("\\s+"), " ").lowercase() }
+    val buscado = normalizar(entrega.direccion)
+    if (buscado.isEmpty()) return null
+    val marcado = entrega.punto
+    return guardadas.firstOrNull { guardada ->
+        if (normalizar(guardada.direccion) != buscado) return@firstOrNull false
+        if (marcado == null) return@firstOrNull true
+        val punto = guardada.punto
+        punto != null && Geo.distanciaMetros(punto, marcado) <= Geo.MISMA_UBICACION_M
+    }
 }
 
 /**
  * Implementación de producción para el repositorio de pedidos.
  * Conectado en tiempo real a los endpoints de órdenes, direcciones y reseñas del backend Node.js.
- * Cumple con REQ-SEM08-LOG-01, REQ-SEM08-LOG-02 y REQ-SEM08-LOG-03.
+ * Cumple con REQ-SEM08-LOG-01, REQ-SEM08-LOG-02, REQ-SEM08-LOG-03 y REQ-SEM08-LOG-04.
  */
 class OrderRepositoryImpl(
     private val apiService: FoodJetApiService,
@@ -50,76 +77,46 @@ class OrderRepositoryImpl(
     override suspend fun getOrders(): Result<List<OrderRecord>> = withContext(ioDispatcher) {
         try {
             val response = apiService.getMyOrders()
-            if (response.isSuccessful && response.body() != null) {
-                val dtos = response.body()!!
+            val dtos = response.body()
+            if (response.isSuccessful && dtos != null) {
                 val domainOrders = dtos.map { it.toDomain() }
                 _ordersFlow.value = domainOrders
                 Result.success(domainOrders)
             } else {
-                Result.failure(Exception("Error al consultar pedidos (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar tus pedidos")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión al cargar pedidos: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "cargar tus pedidos"), e))
         }
     }
 
     override suspend fun getOrderById(orderId: Int): Result<OrderRecord> = withContext(ioDispatcher) {
         try {
             val response = apiService.getOrderById(orderId)
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!.toDomain())
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body.toDomain())
             } else {
-                Result.failure(Exception("Error al consultar pedido ($orderId): ${response.code()}"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar el pedido #$orderId")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión al consultar pedido: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "consultar el pedido"), e))
         }
     }
 
     override suspend fun createOrder(
         order: OrderRecord,
+        entrega: DeliverySelection,
         restauranteId: Int,
         metodoPago: String,
         cuponId: Int?
     ): Result<OrderRecord> = withContext(ioDispatcher) {
         try {
-            // 1. Obtener dirección de entrega válida del usuario
-            var addressId = 1
-            val addressesResponse = apiService.getAddresses()
-            if (addressesResponse.isSuccessful && !addressesResponse.body().isNullOrEmpty()) {
-                val defaultAddress = addressesResponse.body()!!.firstOrNull { it.esPredeterminada == true }
-                    ?: addressesResponse.body()!!.first()
-                addressId = defaultAddress.id
-            } else {
-                // Si el usuario aún no tiene dirección registrada en PostgreSQL, crear la primera con coordenadas
-                val deliveryAddressText = order.direccionEntrega?.takeIf { it.isNotBlank() } ?: "Av. Principal 123, Miraflores, Lima"
-                val deliveryLat = order.latitudEntrega ?: -12.1218
-                val deliveryLon = order.longitudEntrega ?: -77.0298
-                val newAddressResponse = apiService.createAddress(
-                    CreateAddressRequestDto(
-                        direccionDetallada = deliveryAddressText,
-                        referencia = "Registrado desde la app móvil FoodJet",
-                        latitud = deliveryLat,
-                        longitud = deliveryLon,
-                        esPredeterminada = true
-                    )
-                )
-                if (newAddressResponse.isSuccessful && newAddressResponse.body() != null) {
-                    addressId = newAddressResponse.body()!!.id
-                }
-            }
+            // 1. Dirección del propio cliente: la elegida, una guardada
+            //    equivalente o una nueva con el punto marcado en el mapa.
+            val direccionId = resolverDireccion(entrega).getOrElse { return@withContext Result.failure(it) }
 
-            // 2. Mapear items del carrito al formato esperado por el backend
-            val orderItemsDto = order.items.map { cartItem ->
-                OrderItemRequestDto(
-                    productId = cartItem.product.id,
-                    cantidad = cartItem.quantity
-                )
-            }
-
-            val validRestId = order.items.firstOrNull()?.product?.restauranteId ?: restauranteId
-
-            // Mapeo canónico estricto requerido por el backend: cash, card, wallet
+            // 2. Mapeo canónico estricto requerido por el backend: cash, card, wallet
             val canonicalMethod = when (metodoPago.lowercase().trim()) {
                 "card", "tarjeta" -> "card"
                 "wallet", "billetera", "billetera digital", "yape", "plin" -> "wallet"
@@ -127,31 +124,62 @@ class OrderRepositoryImpl(
             }
 
             val request = CreateOrderRequestDto(
-                restauranteId = validRestId,
-                direccionEntregaId = addressId,
+                restauranteId = restauranteId,
+                direccionEntregaId = direccionId,
                 cuponId = cuponId,
                 metodoPago = canonicalMethod,
-                items = orderItemsDto
+                items = order.items.map { OrderItemRequestDto(productId = it.product.id, cantidad = it.quantity) }
             )
 
-            // 3. Crear orden en backend Node.js / PostgreSQL
+            // 3. El backend recalcula precios, descuento, IGV y envío: el
+            //    pedido que se muestra es el que devuelve, no el del carrito.
             val response = apiService.createOrder(request)
-            if (response.isSuccessful && response.body() != null) {
-                val createdId = response.body()!!.order?.id ?: 1
-                val freshOrder = getOrderById(createdId).getOrNull() ?: order.copy(
-                    id = "FJ-$createdId",
-                    numericId = createdId,
-                    estado = if (canonicalMethod == "cash") OrderStatus.PENDIENTE else OrderStatus.CONFIRMADO,
-                    total = response.body()!!.order?.total ?: order.total
-                )
-                // Refrescar el flujo de órdenes con los datos frescos del servidor
-                getOrders()
-                Result.success(freshOrder)
+            val createdId = response.body()?.order?.id
+            if (!response.isSuccessful || createdId == null) {
+                return@withContext Result.failure(Exception(ErroresApi.mensaje(response, "registrar el pedido")))
+            }
+            val freshOrder = getOrderById(createdId).getOrElse { return@withContext Result.failure(it) }
+            getOrders()
+            Result.success(freshOrder)
+        } catch (e: Exception) {
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "enviar el pedido"), e))
+        }
+    }
+
+    private suspend fun resolverDireccion(entrega: DeliverySelection): Result<Int> {
+        entrega.direccionGuardadaId?.let { return Result.success(it) }
+
+        val guardadas = getAddresses().getOrElse { return Result.failure(it) }
+        buscarDireccionGuardada(guardadas, entrega)?.let { return Result.success(it.id) }
+
+        val response = apiService.createAddress(
+            CreateAddressRequestDto(
+                direccionDetallada = entrega.direccion.trim(),
+                referencia = entrega.referencia?.trim()?.takeIf { it.isNotEmpty() },
+                latitud = entrega.punto?.latitud,
+                longitud = entrega.punto?.longitud,
+                esPredeterminada = guardadas.isEmpty()
+            )
+        )
+        val creada = response.body()
+        return if (response.isSuccessful && creada != null) {
+            Result.success(creada.id)
+        } else {
+            Result.failure(Exception(ErroresApi.mensaje(response, "guardar la dirección de entrega")))
+        }
+    }
+
+    override suspend fun getAddresses(): Result<List<SavedAddress>> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getAddresses()
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body.map { it.toDomain() })
             } else {
-                Result.failure(Exception("Error al procesar el pedido (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar tus direcciones")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Falla de red al enviar el pedido: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "consultar tus direcciones"), e))
         }
     }
 
@@ -162,23 +190,24 @@ class OrderRepositoryImpl(
                 getOrders()
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Error al cancelar pedido (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "cancelar el pedido")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de red al cancelar pedido: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "cancelar el pedido"), e))
         }
     }
 
     override suspend fun getAllAdminOrders(): Result<List<AdminOrderDto>> = withContext(ioDispatcher) {
         try {
             val response = apiService.getAllOrders()
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
             } else {
-                Result.failure(Exception("Error al consultar pedidos de administración (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar los pedidos del sistema")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de red: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "consultar los pedidos del sistema"), e))
         }
     }
 
@@ -189,10 +218,10 @@ class OrderRepositoryImpl(
                 getOrders()
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Error al actualizar estado (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "actualizar el estado")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "actualizar el estado"), e))
         }
     }
 
@@ -202,7 +231,8 @@ class OrderRepositoryImpl(
         comment: String
     ): Result<Unit> = withContext(ioDispatcher) {
         try {
-            val numericId = orderId.removePrefix("FJ-").toIntOrNull() ?: 1
+            val numericId = orderId.removePrefix("FJ-").toIntOrNull()
+                ?: return@withContext Result.failure(IllegalArgumentException("Pedido inválido: $orderId"))
             val response = apiService.createReview(
                 CreateReviewRequestDto(
                     pedidoId = numericId,
@@ -214,36 +244,52 @@ class OrderRepositoryImpl(
                 getOrders() // Refrescar para reflejar la calificación
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("No se pudo registrar la calificación (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "registrar la calificación")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Falla de conexión al enviar la reseña: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "enviar la reseña"), e))
         }
     }
 
     override suspend fun getPublicConfig(): Result<ConfigResponseDto> = withContext(ioDispatcher) {
         try {
             val response = apiService.getConfig()
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
             } else {
-                Result.failure(Exception("Error al obtener configuración pública (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "obtener la configuración")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Falla de conexión al obtener configuración: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "obtener la configuración"), e))
         }
     }
 
     override suspend fun getRestaurants(): Result<List<RestaurantDto>> = withContext(ioDispatcher) {
         try {
             val response = apiService.getRestaurants()
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
             } else {
-                Result.failure(Exception("Error al consultar locales (${response.code()})"))
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar los locales")))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Falla de conexión al consultar locales: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "consultar los locales"), e))
+        }
+    }
+
+    override suspend fun getRestaurant(id: Int): Result<RestaurantDto> = withContext(ioDispatcher) {
+        try {
+            val response = apiService.getRestaurantById(id)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(ErroresApi.mensaje(response, "consultar el local")))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "consultar el local"), e))
         }
     }
 }

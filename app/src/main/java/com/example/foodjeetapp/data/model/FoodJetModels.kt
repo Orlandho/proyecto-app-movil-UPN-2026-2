@@ -35,13 +35,13 @@ data class PromotionSlide(
     val buttonText: String
 )
 
-enum class OrderStatus(val label: String, val stepIndex: Int = 1) {
-    PENDIENTE("Pendiente", 1),
-    CONFIRMADO("Confirmado", 1),
-    EN_PREPARACION("En preparación", 2),
-    EN_CAMINO("En camino", 3),
-    ENTREGADO("Entregado", 4),
-    CANCELADO("Cancelado", 0);
+enum class OrderStatus(val label: String, val stepIndex: Int = 1, val clave: String = "") {
+    PENDIENTE("Pendiente", 1, "pendiente"),
+    CONFIRMADO("Confirmado", 1, "confirmado"),
+    EN_PREPARACION("En preparación", 2, "en_preparacion"),
+    EN_CAMINO("En camino", 3, "en_camino"),
+    ENTREGADO("Entregado", 4, "entregado"),
+    CANCELADO("Cancelado", 0, "cancelado");
 
     val isTerminal: Boolean get() = this == ENTREGADO || this == CANCELADO
     val isCancelable: Boolean get() = this == PENDIENTE || this == CONFIRMADO
@@ -87,7 +87,42 @@ data class OrderRecord(
     val restanteMetros: Int? = null,
     val llegadaEstimada: String? = null,
     val historialEstados: List<OrderHistoryEntry> = emptyList(),
-    val rutaPuntos: List<GeoPoint> = emptyList()
+    val rutaPuntos: List<GeoPoint> = emptyList(),
+    val restauranteId: Int? = null,
+    /** Fecha completa de creación (ISO 8601), para la línea de tiempo. */
+    val fechaIso: String? = null,
+    /** Segundos que dura cada estado en el simulador del backend. Vacío si el pedido no tiene plan. */
+    val planTiempos: Map<String, Double> = emptyMap(),
+    /** Momento en que salió a reparto (ISO 8601). */
+    val envioIniciadoEn: String? = null,
+    /** Reloj del servidor menos el del teléfono, medido al recibir el pedido. */
+    val desfaseRelojMs: Long = 0
+)
+
+/** Dirección de entrega guardada en el backend (`DeliveryAddress`). */
+data class SavedAddress(
+    val id: Int,
+    val direccion: String,
+    val referencia: String?,
+    val latitud: Double?,
+    val longitud: Double?,
+    val predeterminada: Boolean
+) {
+    val punto: GeoPoint? get() =
+        if (Geo.coordenadasValidas(latitud, longitud)) GeoPoint(latitud!!, longitud!!) else null
+}
+
+/**
+ * Punto de entrega que eligió el cliente en el checkout. Sin [punto] solo
+ * cuando no hubo mapa ni GPS: como en la web, el pedido sale con la
+ * dirección escrita y el backend no traza ruta.
+ */
+data class DeliverySelection(
+    val direccion: String,
+    val referencia: String?,
+    val punto: GeoPoint?,
+    /** Dirección guardada que se reutiliza, o null si hay que crear una nueva. */
+    val direccionGuardadaId: Int? = null
 )
 
 data class UserProfile(

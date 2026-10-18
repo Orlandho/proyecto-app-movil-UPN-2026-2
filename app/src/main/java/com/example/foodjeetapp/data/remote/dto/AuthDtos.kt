@@ -24,7 +24,7 @@ data class UserDto(
         return UserProfile(
             name = nombre,
             email = email,
-            phone = telefono ?: "987654321",
+            phone = telefono.orEmpty(),
             isStudent = esEstudiante ?: false,
             isAdmin = rol.equals("admin", ignoreCase = true)
         )

@@ -9,19 +9,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * ViewModel para la gestión reactiva del carrito de compras y cupones de descuento.
+ * ViewModel para la gestión reactiva del carrito de compras.
  * Cumple con REQ-SEM06-LOG-01 y REQ-SEM06-LOG-02.
+ *
+ * Los importes de aquí son la vista previa del carrito. El precio que se
+ * cobra lo calcula el backend al crear el pedido (descuento de estudiante,
+ * cupón, IGV y envío), y es el que muestra después el seguimiento. Los
+ * cupones se aplican en el checkout contra los que existen en el backend.
  */
 class CartViewModel : ViewModel() {
 
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems.asStateFlow()
-
-    private val _appliedCoupon = MutableStateFlow<String?>(null)
-    val appliedCoupon: StateFlow<String?> = _appliedCoupon.asStateFlow()
-
-    private val _couponDiscountPercent = MutableStateFlow(0.0)
-    val couponDiscountPercent: StateFlow<Double> = _couponDiscountPercent.asStateFlow()
 
     fun addToCart(product: ProductItem) {
         _cartItems.update { current ->
@@ -56,43 +55,14 @@ class CartViewModel : ViewModel() {
 
     fun clearCart() {
         _cartItems.value = emptyList()
-        _appliedCoupon.value = null
-        _couponDiscountPercent.value = 0.0
-    }
-
-    fun applyCoupon(code: String): Boolean {
-        val cleanCode = code.trim().uppercase()
-        return when (cleanCode) {
-            "FOODJET10" -> {
-                _appliedCoupon.value = cleanCode
-                _couponDiscountPercent.value = 10.0
-                true
-            }
-            "ESTUDIANTE20" -> {
-                _appliedCoupon.value = cleanCode
-                _couponDiscountPercent.value = 20.0
-                true
-            }
-            else -> false
-        }
-    }
-
-    fun removeCoupon() {
-        _appliedCoupon.value = null
-        _couponDiscountPercent.value = 0.0
     }
 
     fun getSubtotal(isStudent: Boolean): Double {
         return _cartItems.value.sumOf { it.product.getEffectivePrice(isStudent) * it.quantity }
     }
 
-    fun getCouponDiscountAmount(isStudent: Boolean): Double {
-        val subtotal = getSubtotal(isStudent)
-        return subtotal * (_couponDiscountPercent.value / 100.0)
-    }
-
     fun getTaxAmount(isStudent: Boolean): Double {
-        val base = getSubtotal(isStudent) - getCouponDiscountAmount(isStudent)
+        val base = getSubtotal(isStudent)
         return if (base > 0) base * 0.18 else 0.0
     }
 
@@ -100,9 +70,6 @@ class CartViewModel : ViewModel() {
 
     fun getTotal(isStudent: Boolean): Double {
         if (_cartItems.value.isEmpty()) return 0.0
-        val subtotal = getSubtotal(isStudent)
-        val discount = getCouponDiscountAmount(isStudent)
-        val tax = getTaxAmount(isStudent)
-        return (subtotal - discount + tax + getDeliveryFee()).coerceAtLeast(0.0)
+        return (getSubtotal(isStudent) + getTaxAmount(isStudent) + getDeliveryFee()).coerceAtLeast(0.0)
     }
 }

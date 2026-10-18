@@ -17,15 +17,83 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.OrderRecord
 import com.example.foodjeetapp.data.model.OrderStatus
 import com.example.foodjeetapp.ui.components.StarRatingBar
 import com.example.foodjeetapp.ui.theme.*
 
+/**
+ * Historial con las cuatro vistas de REQ-SEM06-VIS-02: carga, contenido,
+ * error con reintento y vacío. Sin sesión no hay pedidos que pedir.
+ */
 @Composable
 fun OrderHistoryScreen(
+    ordersState: UiState<List<OrderRecord>>,
+    isLoggedIn: Boolean,
+    onLogin: () -> Unit,
+    onRetry: () -> Unit,
+    onLeaveReview: (OrderRecord) -> Unit,
+    onTrackOrder: (OrderRecord) -> Unit = {},
+    onBackToMenu: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    when {
+        !isLoggedIn -> EstadoHistorial(
+            icono = Icons.Default.Lock,
+            titulo = "Inicia sesión para ver tus pedidos",
+            boton = "Iniciar sesión",
+            onBoton = onLogin,
+            modifier = modifier
+        )
+        ordersState is UiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = FoodJetPrimary)
+        }
+        ordersState is UiState.Error -> EstadoHistorial(
+            icono = Icons.Default.CloudOff,
+            titulo = ordersState.message,
+            boton = "Reintentar",
+            onBoton = onRetry,
+            modifier = modifier
+        )
+        else -> OrderHistoryList(
+            orders = (ordersState as? UiState.Success<List<OrderRecord>>)?.data.orEmpty(),
+            onLeaveReview = onLeaveReview,
+            onTrackOrder = onTrackOrder,
+            onBackToMenu = onBackToMenu,
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
+private fun EstadoHistorial(
+    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    titulo: String,
+    boton: String,
+    onBoton: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(54.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = onBoton, modifier = Modifier.heightIn(min = 48.dp)) { Text(boton) }
+    }
+}
+
+@Composable
+fun OrderHistoryList(
     orders: List<OrderRecord>,
     onLeaveReview: (OrderRecord) -> Unit,
     onTrackOrder: (OrderRecord) -> Unit = {},

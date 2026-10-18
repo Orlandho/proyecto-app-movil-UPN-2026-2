@@ -2,6 +2,7 @@ package com.example.foodjeetapp.data.repository
 
 import com.example.foodjeetapp.data.local.SessionDataStore
 import com.example.foodjeetapp.data.model.UserProfile
+import com.example.foodjeetapp.data.remote.ErroresApi
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import com.example.foodjeetapp.data.remote.dto.LoginRequestDto
 import com.example.foodjeetapp.data.remote.dto.RegisterRequestDto
@@ -22,7 +23,10 @@ interface UserRepository {
     suspend fun register(name: String, email: String, phone: String, password: String): Result<UserProfile>
     suspend fun updateStudentStatus(isStudent: Boolean): Result<Unit>
     suspend fun logout(): Result<Unit>
+    suspend fun validarSesion(): ValidacionSesion
 }
+
+enum class ValidacionSesion { SIN_SESION, VALIDA, RECHAZADA, SIN_CONEXION }
 
 /**
  * Implementación de producción para el repositorio de usuario y autenticación.
@@ -36,6 +40,41 @@ class UserRepositoryImpl(
 ) : UserRepository {
 
     override fun getCurrentUserStream(): Flow<UserProfile?> = sessionDataStore.userProfileFlow
+
+    /**
+     * Comprueba con `GET /api/auth/me` que el token guardado siga valiendo
+     * (caduca a las 24 h y deja de valer si se rota JWT_SECRET). Si el
+     * servidor lo rechaza se cierra la sesión; si responde, se refresca el
+     * perfil con lo que dice el servidor. Sin red se conserva la sesión.
+     */
+    override suspend fun validarSesion(): ValidacionSesion = withContext(ioDispatcher) {
+        val token = sessionDataStore.getToken() ?: return@withContext ValidacionSesion.SIN_SESION
+        try {
+            val response = apiService.getProfile()
+            val user = response.body()?.user
+            when {
+                response.isSuccessful && user != null -> {
+                    sessionDataStore.saveSession(
+                        token = token,
+                        userId = user.id,
+                        name = user.nombre,
+                        email = user.email,
+                        phone = user.telefono,
+                        isStudent = user.esEstudiante ?: false,
+                        isAdmin = user.rol.equals("admin", ignoreCase = true)
+                    )
+                    ValidacionSesion.VALIDA
+                }
+                response.code() in setOf(401, 403, 404) -> {
+                    sessionDataStore.clearSession()
+                    ValidacionSesion.RECHAZADA
+                }
+                else -> ValidacionSesion.SIN_CONEXION
+            }
+        } catch (e: Exception) {
+            ValidacionSesion.SIN_CONEXION
+        }
+    }
 
     override suspend fun getCurrentUser(): UserProfile? = sessionDataStore.userProfileFlow.firstOrNull()
 
@@ -59,12 +98,12 @@ class UserRepositoryImpl(
                 val errorMsg = if (response.code() == 401) {
                     "Credenciales incorrectas. Verifica tu correo y contraseña."
                 } else {
-                    "Error al iniciar sesión (${response.code()})"
+                    ErroresApi.mensaje(response, "iniciar sesión")
                 }
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión al servidor: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "conectar con el servidor"), e))
         }
     }
 
@@ -90,12 +129,12 @@ class UserRepositoryImpl(
                 val errorMsg = if (response.code() == 409) {
                     "El correo ya se encuentra registrado."
                 } else {
-                    "Error al crear la cuenta (${response.code()})"
+                    ErroresApi.mensaje(response, "crear la cuenta")
                 }
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Error de conexión al servidor: ${e.localizedMessage}", e))
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "conectar con el servidor"), e))
         }
     }
 
@@ -103,19 +142,22 @@ class UserRepositoryImpl(
         try {
             if (isStudent) {
                 val response = apiService.verifyStudent()
+                // 400 es "ya está verificado": el servidor ya lo tiene como estudiante.
                 if (response.isSuccessful || response.code() == 400) {
                     sessionDataStore.updateStudentStatus(true)
                     Result.success(Unit)
                 } else {
-                    Result.failure(Exception("Error al verificar estudiante en el servidor (${response.code()})"))
+                    Result.failure(Exception(ErroresApi.mensaje(response, "verificar tu carnet")))
                 }
             } else {
                 sessionDataStore.updateStudentStatus(false)
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            sessionDataStore.updateStudentStatus(isStudent)
-            Result.success(Unit)
+            // Sin respuesta del servidor no hay descuento: el precio lo calcula
+            // el backend, y marcarlo solo en el teléfono mostraría precios que
+            // luego no se cobran.
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "verificar tu carnet"), e))
         }
     }
 

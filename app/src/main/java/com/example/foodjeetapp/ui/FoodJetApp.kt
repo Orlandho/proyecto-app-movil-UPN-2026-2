@@ -6,10 +6,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.foodjeetapp.data.common.UiState
+import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.data.model.*
+import com.example.foodjeetapp.data.remote.RetrofitClient
 import com.example.foodjeetapp.ui.components.FoodJetBottomBar
 import com.example.foodjeetapp.ui.components.FoodJetTopBar
 import com.example.foodjeetapp.ui.screens.*
@@ -19,10 +32,37 @@ import com.example.foodjeetapp.ui.viewmodel.HomeViewModel
 import com.example.foodjeetapp.ui.viewmodel.OrderViewModel
 import kotlinx.coroutines.launch
 
+/** Rutas del NavHost (REQ-SEM03-VIS-03). */
+object Rutas {
+    const val HOME = "home"
+    const val MENU = "menu"
+    const val FAVORITOS = "favorites"
+    const val PEDIDOS = "orders"
+    const val CHECKOUT = "checkout"
+    const val DASHBOARD = "dashboard"
+    const val ARG_PEDIDO = "orderId"
+    const val SEGUIMIENTO = "tracking/{$ARG_PEDIDO}"
+
+    fun seguimiento(pedidoId: Int) = "tracking/$pedidoId"
+
+    /** Pantallas de flujo completo, sin barra superior ni inferior. */
+    val SIN_BARRAS = setOf(CHECKOUT, SEGUIMIENTO, DASHBOARD)
+}
+
+/** Pago con billetera pendiente de confirmar en el diálogo del QR. */
+private data class PagoQrPendiente(
+    val entrega: DeliverySelection,
+    val cuponId: Int?,
+    val restauranteId: Int,
+    val restauranteNombre: String,
+    val qrUrl: String?
+)
+
 /**
  * Contenedor principal de la aplicación FoodJet.
  * Implementa el patrón MVVM (REQ-SEM06-LOG-01) y retiene estado con ViewModels (REQ-SEM06-LOG-02).
  * Consume flujos de estado inmutables con collectAsStateWithLifecycle (REQ-SEM06-VIS-01).
+ * Navega con Compose Navigation (NavHost) pasando el id del pedido como argumento (REQ-SEM03-VIS-03).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,10 +70,17 @@ fun FoodJetApp(
     homeViewModel: HomeViewModel = viewModel(),
     cartViewModel: CartViewModel = viewModel(),
     orderViewModel: OrderViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    pedidoSolicitado: Int? = null,
+    onPedidoAtendido: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    fun avisar(mensaje: String) {
+        coroutineScope.launch { snackbarHostState.showSnackbar(mensaje) }
+    }
 
     // Estados expuestos por los ViewModels (Arquitectura MVVM limpia)
     val productsState by homeViewModel.productsState.collectAsStateWithLifecycle()
@@ -42,65 +89,125 @@ fun FoodJetApp(
     val cartItems by cartViewModel.cartItems.collectAsStateWithLifecycle()
     val ordersState by orderViewModel.ordersState.collectAsStateWithLifecycle()
     val currentTrackingOrder by orderViewModel.currentTrackingOrder.collectAsStateWithLifecycle()
+    val trackingError by orderViewModel.trackingError.collectAsStateWithLifecycle()
     val adminOrdersState by orderViewModel.adminOrdersState.collectAsStateWithLifecycle()
+    val addressesState by orderViewModel.addressesState.collectAsStateWithLifecycle()
+    val isSubmitting by orderViewModel.isSubmitting.collectAsStateWithLifecycle()
 
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
+    val servidor by authViewModel.servidor.collectAsStateWithLifecycle()
 
-    val activeUser = currentUser ?: UserProfile(name = "Invitado", email = "", isStudent = false)
+    val activeUser = currentUser ?: UserProfile(name = "Invitado", email = "", phone = "", isStudent = false)
 
-    // Estados de navegación y vistas de interfaz
-    var currentRoute by remember { mutableStateOf("home") } // home, menu, favorites, orders, checkout, tracking, dashboard
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val rutaActual = backStackEntry?.destination?.route ?: Rutas.HOME
 
     // Estados de Hojas y Modales
     var showCartSheet by remember { mutableStateOf(false) }
     var showLoginDialog by remember { mutableStateOf(false) }
     var showRegisterDialog by remember { mutableStateOf(false) }
-    var showQrDialog by remember { mutableStateOf(false) }
-    var pendingWalletCouponId by remember { mutableStateOf<Int?>(null) }
-    var pendingWalletTotal by remember { mutableDoubleStateOf(0.0) }
+    var pagoQr by remember { mutableStateOf<PagoQrPendiente?>(null) }
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
 
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cartCount = cartItems.sumOf { it.quantity }
 
+    // Intent explícito del acceso directo "Seguir pedido #N".
+    LaunchedEffect(pedidoSolicitado) {
+        val pedidoId = pedidoSolicitado ?: return@LaunchedEffect
+        orderViewModel.seguirPedido(pedidoId)
+        navController.navigate(Rutas.seguimiento(pedidoId)) { launchSingleTop = true }
+        onPedidoAtendido()
+    }
+
+    fun irA(ruta: String) {
+        navController.navigate(ruta) {
+            popUpTo(Rutas.HOME) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    fun abrirSeguimiento(pedido: OrderRecord) {
+        orderViewModel.setTrackingOrder(pedido)
+        navController.navigate(Rutas.seguimiento(pedido.numericId)) { launchSingleTop = true }
+    }
+
+    fun registrarPedido(entrega: DeliverySelection, restauranteId: Int, metodo: String, cuponId: Int?) {
+        val borrador = OrderRecord(
+            id = "FJ-NUEVO",
+            fecha = "",
+            estado = OrderStatus.PENDIENTE,
+            items = cartItems,
+            subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
+            impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
+            total = cartViewModel.getTotal(activeUser.isStudent),
+            paymentMethod = metodo
+        )
+        orderViewModel.createOrder(
+            order = borrador,
+            entrega = entrega,
+            restauranteId = restauranteId,
+            metodoPago = metodo,
+            cuponId = cuponId,
+            onSuccess = { creado ->
+                cartViewModel.clearCart()
+                IntentsFoodJet.publicarAccesoDirecto(context, creado.numericId)
+                navController.navigate(Rutas.seguimiento(creado.numericId)) {
+                    popUpTo(Rutas.HOME)
+                }
+                avisar("¡Pedido #${creado.numericId} registrado!")
+            },
+            onError = ::avisar
+        )
+    }
+
+    fun limpiarSesion() {
+        orderViewModel.limpiar()
+        homeViewModel.retry()
+        cartViewModel.clearCart()
+        IntentsFoodJet.quitarAccesoDirecto(context)
+        navController.navigate(Rutas.HOME) { popUpTo(0) }
+    }
+
+    val sesionRechazada by authViewModel.sesionRechazada.collectAsStateWithLifecycle()
+    LaunchedEffect(sesionRechazada) {
+        if (!sesionRechazada) return@LaunchedEffect
+        authViewModel.sesionRechazadaAtendida()
+        limpiarSesion()
+        avisar("Tu sesión expiró. Inicia sesión de nuevo.")
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (currentRoute !in listOf("checkout", "tracking", "dashboard")) {
+            if (rutaActual !in Rutas.SIN_BARRAS) {
                 FoodJetTopBar(
                     cartCount = cartCount,
                     favoritesCount = favorites.size,
                     isLoggedIn = isLoggedIn,
                     userName = activeUser.name,
-                    onLogoClick = { currentRoute = "home" },
+                    onLogoClick = { irA(Rutas.HOME) },
                     onCartClick = { showCartSheet = true },
-                    onFavoritesClick = { currentRoute = "favorites" },
+                    onFavoritesClick = { irA(Rutas.FAVORITOS) },
                     onProfileClick = {
-                        if (isLoggedIn) {
-                            showMiCuentaDialog = true
-                        } else {
-                            showLoginDialog = true
-                        }
+                        if (isLoggedIn) showMiCuentaDialog = true else showLoginDialog = true
                     }
                 )
             }
         },
         bottomBar = {
-            if (currentRoute !in listOf("checkout", "tracking", "dashboard")) {
+            if (rutaActual !in Rutas.SIN_BARRAS) {
                 FoodJetBottomBar(
-                    currentRoute = currentRoute,
+                    currentRoute = rutaActual,
                     favoritesCount = favorites.size,
                     onNavigate = { route ->
                         if (route == "profile") {
-                            if (isLoggedIn) {
-                                showMiCuentaDialog = true
-                            } else {
-                                showLoginDialog = true
-                            }
+                            if (isLoggedIn) showMiCuentaDialog = true else showLoginDialog = true
                         } else {
-                            currentRoute = route
+                            irA(route)
                         }
                     }
                 )
@@ -112,172 +219,156 @@ fun FoodJetApp(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (currentRoute) {
-                "home", "menu" -> {
+            NavHost(navController = navController, startDestination = Rutas.HOME) {
+                composable(Rutas.HOME) {
                     HomeScreen(
                         productsState = productsState,
                         promotions = homeViewModel.getPromotions(),
                         isStudent = activeUser.isStudent,
                         favorites = favorites,
                         onFavoriteToggle = { id ->
+                            if (!isLoggedIn) {
+                                showLoginDialog = true
+                                return@HomeScreen
+                            }
                             val wasFav = favorites.contains(id)
                             homeViewModel.toggleFavorite(id)
-                            coroutineScope.launch {
-                                val msg = if (wasFav) "Eliminado de favoritos" else "¡Añadido a favoritos! ❤️"
-                                snackbarHostState.showSnackbar(msg)
-                            }
+                            avisar(if (wasFav) "Eliminado de favoritos" else "¡Añadido a favoritos! ❤️")
                         },
                         onAddToCart = { product ->
                             cartViewModel.addToCart(product)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("¡${product.nombre} añadido al carrito!")
-                            }
+                            avisar("¡${product.nombre} añadido al carrito!")
                         },
-                        onNavigateToMenu = {
-                            currentRoute = "menu"
-                        },
-                        onRetry = {
-                            homeViewModel.retry()
-                        }
+                        onNavigateToMenu = { irA(Rutas.MENU) },
+                        onRetry = { homeViewModel.retry() }
                     )
                 }
-                "favorites" -> {
-                    val favoriteProducts = if (productsState is UiState.Success) {
-                        (productsState as UiState.Success<List<ProductItem>>).data.filter { favorites.contains(it.id) }
-                    } else {
-                        emptyList()
-                    }
+                composable(Rutas.MENU) {
+                    HomeScreen(
+                        productsState = productsState,
+                        promotions = homeViewModel.getPromotions(),
+                        isStudent = activeUser.isStudent,
+                        favorites = favorites,
+                        onFavoriteToggle = { id ->
+                            if (!isLoggedIn) {
+                                showLoginDialog = true
+                                return@HomeScreen
+                            }
+                            homeViewModel.toggleFavorite(id)
+                        },
+                        onAddToCart = { product ->
+                            cartViewModel.addToCart(product)
+                            avisar("¡${product.nombre} añadido al carrito!")
+                        },
+                        onNavigateToMenu = {},
+                        onRetry = { homeViewModel.retry() }
+                    )
+                }
+                composable(Rutas.FAVORITOS) {
+                    val favoriteProducts = (productsState as? UiState.Success<List<ProductItem>>)
+                        ?.data?.filter { favorites.contains(it.id) }.orEmpty()
                     FavoritesScreen(
                         favoriteProducts = favoriteProducts,
                         isStudent = activeUser.isStudent,
                         onRemoveFavorite = { id ->
                             homeViewModel.toggleFavorite(id)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Eliminado de favoritos")
-                            }
+                            avisar("Eliminado de favoritos")
                         },
                         onAddToCart = { product ->
                             cartViewModel.addToCart(product)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("¡${product.nombre} añadido al carrito!")
-                            }
+                            avisar("¡${product.nombre} añadido al carrito!")
                         },
-                        onExploreMenu = { currentRoute = "home" }
+                        onExploreMenu = { irA(Rutas.HOME) }
                     )
                 }
-                "orders" -> {
-                    val ordersList = if (ordersState is UiState.Success) {
-                        (ordersState as UiState.Success<List<OrderRecord>>).data
-                    } else {
-                        emptyList()
-                    }
+                composable(Rutas.PEDIDOS) {
+                    LaunchedEffect(isLoggedIn) { if (isLoggedIn) orderViewModel.loadOrders() }
                     OrderHistoryScreen(
-                        orders = ordersList,
-                        onLeaveReview = { order ->
-                            reviewTargetOrder = order
-                        },
-                        onTrackOrder = { order ->
-                            orderViewModel.setTrackingOrder(order)
-                            currentRoute = "tracking"
-                        },
-                        onBackToMenu = { currentRoute = "home" }
+                        ordersState = ordersState,
+                        isLoggedIn = isLoggedIn,
+                        onLogin = { showLoginDialog = true },
+                        onRetry = { orderViewModel.loadOrders() },
+                        onLeaveReview = { order -> reviewTargetOrder = order },
+                        onTrackOrder = ::abrirSeguimiento,
+                        onBackToMenu = { irA(Rutas.HOME) }
                     )
                 }
-                "checkout" -> {
+                composable(Rutas.CHECKOUT) {
+                    LaunchedEffect(isLoggedIn) { if (isLoggedIn) orderViewModel.loadAddresses() }
                     CheckoutScreen(
                         cartItems = cartItems,
                         isStudent = activeUser.isStudent,
-                        initialName = activeUser.name,
+                        isLoggedIn = isLoggedIn,
+                        initialName = activeUser.name.takeIf { isLoggedIn }.orEmpty(),
                         initialPhone = activeUser.phone,
-                        onBackToMenu = { currentRoute = "home" },
-                        onConfirmOrder = { _, _, _ -> },
-                        onConfirmOrderWithDetails = { method, total, cuponId, addressText, lat, lon ->
-                            if (method == "wallet") {
-                                pendingWalletCouponId = cuponId
-                                pendingWalletTotal = total
-                                showQrDialog = true
+                        addressesState = addressesState,
+                        isSubmitting = isSubmitting,
+                        onRequireLogin = { showLoginDialog = true },
+                        onRetryAddresses = { orderViewModel.loadAddresses() },
+                        onBackToMenu = { navController.popBackStack() },
+                        onConfirmar = { metodo, cuponId, entrega ->
+                            val restauranteId = cartItems.firstOrNull()?.product?.restauranteId
+                            if (restauranteId == null) {
+                                avisar("Tu carrito está vacío")
+                                return@CheckoutScreen
+                            }
+                            if (metodo == "wallet") {
+                                // Como en la web: se muestra el QR real del local antes de registrar.
+                                coroutineScope.launch {
+                                    orderViewModel.restaurante(restauranteId)
+                                        .onSuccess { local ->
+                                            pagoQr = PagoQrPendiente(
+                                                entrega = entrega,
+                                                cuponId = cuponId,
+                                                restauranteId = restauranteId,
+                                                restauranteNombre = local.nombre ?: "el local",
+                                                qrUrl = servidor.recurso(local.qrPago)
+                                            )
+                                        }
+                                        .onFailure { avisar(it.message ?: "No se pudo obtener el QR del local") }
+                                }
                             } else {
-                                val restId = cartItems.firstOrNull()?.product?.restauranteId ?: 1
-                                val newOrder = OrderRecord(
-                                    id = "FJ-TEMP",
-                                    fecha = "Hoy",
-                                    estado = if (method == "card") OrderStatus.CONFIRMADO else OrderStatus.PENDIENTE,
-                                    items = cartItems,
-                                    subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
-                                    impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
-                                    total = total,
-                                    paymentMethod = method,
-                                    direccionEntrega = addressText,
-                                    latitudEntrega = lat,
-                                    longitudEntrega = lon
-                                )
-                                orderViewModel.createOrder(
-                                    order = newOrder,
-                                    restauranteId = restId,
-                                    metodoPago = method,
-                                    cuponId = cuponId,
-                                    onSuccess = { createdOrder ->
-                                        cartViewModel.clearCart()
-                                        currentRoute = "tracking"
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("¡Pedido #${createdOrder.id} registrado exitosamente!")
-                                        }
-                                    },
-                                    onError = { err ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(err)
-                                        }
-                                    }
-                                )
+                                registrarPedido(entrega, restauranteId, metodo, cuponId)
                             }
                         }
                     )
                 }
-                "tracking" -> {
+                composable(
+                    route = Rutas.SEGUIMIENTO,
+                    arguments = listOf(navArgument(Rutas.ARG_PEDIDO) { type = NavType.IntType })
+                ) { entry ->
+                    val pedidoId = entry.arguments?.getInt(Rutas.ARG_PEDIDO) ?: 0
+                    SeguimientoMientrasVisible(orderViewModel, pedidoId)
                     TrackingScreen(
-                        order = currentTrackingOrder,
+                        order = currentTrackingOrder?.takeIf { it.numericId == pedidoId },
+                        pedidoId = pedidoId,
+                        error = trackingError,
                         onCancelOrder = { orderId ->
                             orderViewModel.cancelCurrentOrder(
                                 orderId = orderId,
-                                onSuccess = {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Pedido cancelado exitosamente")
-                                    }
-                                },
-                                onError = { err ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(err)
-                                    }
-                                }
+                                onSuccess = { avisar("Pedido cancelado") },
+                                onError = ::avisar
                             )
                         },
-                        onBackToMenu = { currentRoute = "home" },
-                        onViewHistory = { currentRoute = "orders" }
+                        onBackToMenu = { irA(Rutas.HOME) },
+                        onViewHistory = { irA(Rutas.PEDIDOS) }
                     )
                 }
-                "dashboard" -> {
+                composable(Rutas.DASHBOARD) {
                     AdminDashboardScreen(
+                        adminName = activeUser.name,
+                        adminEmail = activeUser.email,
                         ordersState = adminOrdersState,
                         onAdvanceOrderStatus = { orderId, nextStatus ->
                             orderViewModel.advanceOrderStatus(
                                 orderId = orderId,
                                 nextStatus = nextStatus,
-                                onSuccess = {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Pedido #$orderId actualizado a $nextStatus")
-                                    }
-                                },
-                                onError = { err ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(err)
-                                    }
-                                }
+                                onSuccess = { avisar("Pedido #$orderId actualizado a $nextStatus") },
+                                onError = ::avisar
                             )
                         },
-                        onRefresh = {
-                            orderViewModel.loadAdminOrders()
-                        },
-                        onBack = { currentRoute = "home" }
+                        onRefresh = { orderViewModel.loadAdminOrders() },
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
@@ -293,15 +384,16 @@ fun FoodJetApp(
             CartSheet(
                 cartItems = cartItems,
                 isStudent = activeUser.isStudent,
-                onIncreaseQty = { productId ->
-                    cartViewModel.increaseQuantity(productId)
-                },
-                onDecreaseQty = { productId ->
-                    cartViewModel.decreaseQuantity(productId)
-                },
+                onIncreaseQty = { productId -> cartViewModel.increaseQuantity(productId) },
+                onDecreaseQty = { productId -> cartViewModel.decreaseQuantity(productId) },
                 onProceedToCheckout = {
                     showCartSheet = false
-                    currentRoute = "checkout"
+                    if (isLoggedIn) {
+                        navController.navigate(Rutas.CHECKOUT) { launchSingleTop = true }
+                    } else {
+                        avisar("Inicia sesión para hacer tu pedido")
+                        showLoginDialog = true
+                    }
                 },
                 onClose = { showCartSheet = false }
             )
@@ -311,6 +403,13 @@ fun FoodJetApp(
     // Diálogo de Login
     if (showLoginDialog) {
         LoginDialog(
+            servidor = servidor,
+            onCambiarServidor = { nuevo ->
+                authViewModel.cambiarServidor(nuevo) {
+                    limpiarSesion()
+                    avisar("Ahora usas ${nuevo.etiqueta}")
+                }
+            },
             onDismiss = { showLoginDialog = false },
             onLoginSuccess = { email, password ->
                 authViewModel.login(
@@ -321,15 +420,9 @@ fun FoodJetApp(
                         // Recargar pedidos y favoritos del usuario recién logueado
                         orderViewModel.loadOrders()
                         homeViewModel.loadFavorites()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Bienvenido, $userName!")
-                        }
+                        avisar("¡Bienvenido, $userName!")
                     },
-                    onError = { err ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(err)
-                        }
-                    }
+                    onError = ::avisar
                 )
             },
             onSwitchToRegister = {
@@ -353,15 +446,9 @@ fun FoodJetApp(
                         showRegisterDialog = false
                         orderViewModel.loadOrders()
                         homeViewModel.loadFavorites()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Cuenta creada exitosamente!")
-                        }
+                        avisar("¡Cuenta creada exitosamente!")
                     },
-                    onError = { err ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(err)
-                        }
-                    }
+                    onError = ::avisar
                 )
             },
             onSwitchToLogin = {
@@ -372,40 +459,14 @@ fun FoodJetApp(
     }
 
     // Diálogo de Pago QR
-    if (showQrDialog) {
+    pagoQr?.let { pago ->
         QrPaymentDialog(
-            onDismiss = { showQrDialog = false },
+            restaurantName = pago.restauranteNombre,
+            qrUrl = pago.qrUrl,
+            onDismiss = { pagoQr = null },
             onPaymentConfirmed = {
-                showQrDialog = false
-                val restId = cartItems.firstOrNull()?.product?.restauranteId ?: 1
-                val newOrder = OrderRecord(
-                    id = "FJ-TEMP",
-                    fecha = "Hoy",
-                    estado = OrderStatus.CONFIRMADO,
-                    items = cartItems,
-                    subtotal = cartViewModel.getSubtotal(activeUser.isStudent),
-                    impuestos = cartViewModel.getTaxAmount(activeUser.isStudent),
-                    total = pendingWalletTotal,
-                    paymentMethod = "wallet"
-                )
-                orderViewModel.createOrder(
-                    order = newOrder,
-                    restauranteId = restId,
-                    metodoPago = "wallet",
-                    cuponId = pendingWalletCouponId,
-                    onSuccess = { createdOrder ->
-                        cartViewModel.clearCart()
-                        currentRoute = "tracking"
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Pago confirmado! Pedido #${createdOrder.id} en preparación.")
-                        }
-                    },
-                    onError = { err ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(err)
-                        }
-                    }
-                )
+                pagoQr = null
+                registrarPedido(pago.entrega, pago.restauranteId, "wallet", pago.cuponId)
             }
         )
     }
@@ -422,15 +483,9 @@ fun FoodJetApp(
                     comment = comment,
                     onDone = {
                         reviewTargetOrder = null
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Gracias por calificar tu pedido!")
-                        }
+                        avisar("¡Gracias por calificar tu pedido!")
                     },
-                    onError = { err ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(err)
-                        }
-                    }
+                    onError = ::avisar
                 )
             }
         )
@@ -443,35 +498,65 @@ fun FoodJetApp(
             userEmail = activeUser.email,
             isStudent = activeUser.isStudent,
             isAdmin = activeUser.isAdmin,
+            servidor = servidor,
+            onCambiarServidor = { nuevo ->
+                authViewModel.cambiarServidor(nuevo) {
+                    showMiCuentaDialog = false
+                    limpiarSesion()
+                    avisar("Ahora usas ${nuevo.etiqueta}. Inicia sesión de nuevo.")
+                }
+            },
+            onAbrirWeb = {
+                if (!IntentsFoodJet.abrirWeb(context, servidor.webOrigen)) avisar("No hay navegador instalado")
+            },
             onVerifyStudent = {
                 authViewModel.verifyStudent(
                     onSuccess = {
                         showMiCuentaDialog = false
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
-                        }
+                        homeViewModel.retry()
+                        avisar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
                     },
-                    onError = { err ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(err)
-                        }
-                    }
+                    onError = ::avisar
                 )
             },
             onOpenAdminDashboard = {
-                currentRoute = "dashboard"
+                showMiCuentaDialog = false
+                navController.navigate(Rutas.DASHBOARD) { launchSingleTop = true }
             },
             onLogout = {
                 authViewModel.logout {
                     showMiCuentaDialog = false
-                    orderViewModel.loadOrders()
-                    homeViewModel.loadFavorites()
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Sesión cerrada")
-                    }
+                    limpiarSesion()
+                    avisar("Sesión cerrada")
                 }
             },
             onDismiss = { showMiCuentaDialog = false }
         )
+    }
+}
+
+/**
+ * Sondea el pedido solo mientras su pantalla está en primer plano
+ * (REQ-SEM04-LOG-01 y REQ-SEM04-INF-02): al pasar la app a segundo plano
+ * (ON_STOP) o salir de la ruta se cancela la corrutina, y al volver
+ * (ON_START) se reanuda con una consulta inmediata.
+ */
+@Composable
+private fun SeguimientoMientrasVisible(orderViewModel: OrderViewModel, pedidoId: Int) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, pedidoId) {
+        orderViewModel.seguirPedido(pedidoId)
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> orderViewModel.reanudarSeguimiento()
+                Lifecycle.Event.ON_STOP -> orderViewModel.pausarSeguimiento()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            orderViewModel.pausarSeguimiento()
+        }
     }
 }

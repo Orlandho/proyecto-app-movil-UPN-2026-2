@@ -1,5 +1,6 @@
 package com.example.foodjeetapp.data.remote.dto
 
+import com.example.foodjeetapp.data.model.SavedAddress
 import com.google.gson.annotations.SerializedName
 
 data class AddressDto(
@@ -10,7 +11,16 @@ data class AddressDto(
     @SerializedName("latitud") val latitud: Double?,
     @SerializedName("longitud") val longitud: Double?,
     @SerializedName("es_predeterminada") val esPredeterminada: Boolean?
-)
+) {
+    fun toDomain() = SavedAddress(
+        id = id,
+        direccion = direccionDetallada,
+        referencia = referencia,
+        latitud = latitud,
+        longitud = longitud,
+        predeterminada = esPredeterminada == true
+    )
+}
 
 data class CreateAddressRequestDto(
     @SerializedName("direccion_detallada") val direccionDetallada: String,
