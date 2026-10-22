@@ -13,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
-/** Selección de servidor: producción por el túnel o el Docker local. */
+/** Selección de servidor: backend local Node.js/MySQL (3000), Docker (8081) o producción (Cloudflare). */
 class ServidorFoodJetTest {
 
     /** Cadena mínima que registra la petición que le llega. */
@@ -44,6 +44,22 @@ class ServidorFoodJetTest {
         val cadena = CadenaFalsa(Request.Builder().url(url).build())
         ServidorInterceptor { servidor }.intercept(cadena)
         return cadena.enviada!!.url.toString()
+    }
+
+    @Test
+    fun `backend local emulador va al puerto 3000 por 10_0_2_2`() {
+        assertEquals(
+            "http://10.0.2.2:3000/api/orders/my-orders?x=1",
+            reescribir(ServidorFoodJet.NODE_LOCAL_EMULADOR, "https://foodjet.asen.pe/api/orders/my-orders?x=1")
+        )
+    }
+
+    @Test
+    fun `backend local usb va al puerto 3000 por localhost`() {
+        assertEquals(
+            "http://localhost:3000/api/auth/login",
+            reescribir(ServidorFoodJet.NODE_LOCAL_USB, "https://foodjet.asen.pe/api/auth/login")
+        )
     }
 
     @Test
@@ -80,6 +96,7 @@ class ServidorFoodJetTest {
 
     @Test
     fun `resuelve recursos relativos de la web`() {
+        assertEquals("http://10.0.2.2:3000/img/qr/burger-king.svg", ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("/img/qr/burger-king.svg"))
         assertEquals("http://10.0.2.2:8081/img/qr/burger-king.svg", ServidorFoodJet.LOCAL_EMULADOR.recurso("/img/qr/burger-king.svg"))
         assertEquals("https://cdn.test/qr.svg", ServidorFoodJet.PRODUCCION.recurso("https://cdn.test/qr.svg"))
         assertNull(ServidorFoodJet.PRODUCCION.recurso("  "))
@@ -88,6 +105,7 @@ class ServidorFoodJetTest {
     @Test
     fun `un nombre desconocido vuelve al servidor predeterminado`() {
         assertEquals(ServidorFoodJet.LOCAL_USB, ServidorFoodJet.desdeNombre("LOCAL_USB"))
+        assertEquals(ServidorFoodJet.NODE_LOCAL_EMULADOR, ServidorFoodJet.desdeNombre("NODE_LOCAL_EMULADOR"))
         assertEquals(ServidorFoodJet.PREDETERMINADO, ServidorFoodJet.desdeNombre(null))
         assertEquals(ServidorFoodJet.PREDETERMINADO, ServidorFoodJet.desdeNombre("otro"))
     }

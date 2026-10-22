@@ -5,6 +5,8 @@ import android.content.pm.ApplicationInfo
 import com.example.foodjeetapp.data.local.SessionDataStore
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import com.example.foodjeetapp.data.remote.interceptor.AuthInterceptor
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -16,11 +18,14 @@ import java.util.concurrent.TimeUnit
  * Cliente HTTP centralizado y constructor de Retrofit.
  * Cumple con REQ-SEM08-LOG-01, REQ-SEM07-INF-01 y REQ-SEM08-INF-01.
  *
- * Retrofit se construye una sola vez con la URL de producción; el servidor
- * real lo decide [ServidorInterceptor] en cada petición, así que cambiar de
- * servidor desde "Mi cuenta" no obliga a reiniciar la app.
+ * Retrofit se construye con la URL canónica de plantilla; el servidor
+ * activo lo decide [ServidorInterceptor] dinámicamente en cada petición,
+ * permitiendo conmutar entre el backend Node.js (MySQL), Docker o Cloudflare
+ * en caliente sin reiniciar la app.
  */
 object RetrofitClient {
+
+    const val TEMPLATE_API_URL = "https://foodjet.asen.pe/api/"
 
     /** Servidor activo. Lo fija [com.example.foodjeetapp.data.di.ServiceLocator] al arrancar. */
     @Volatile
@@ -44,9 +49,6 @@ object RetrofitClient {
         servidorActual: () -> ServidorFoodJet = { servidor }
     ): FoodJetApiService {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // BASIC registra método, URL y código, pero no cuerpos: contraseñas
-            // y tokens no deben llegar a Logcat. En release no se registra
-            // nada, que además ahorra CPU (REQ-SEM01-LOG-01).
             level = if (debugLogging) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
             redactHeader("Authorization")
             redactHeader("Cookie")
@@ -63,7 +65,7 @@ object RetrofitClient {
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(ServidorFoodJet.PREDETERMINADO.apiUrl)
+            .baseUrl(TEMPLATE_API_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -73,18 +75,29 @@ object RetrofitClient {
 
 /**
  * Reescribe esquema, host, puerto y prefijo de cada petición hacia el
- * servidor elegido, conservando la ruta relativa a `/api/` y la consulta.
+ * servidor elegido, conservando la ruta relativa a `/api/` y los query params.
  */
-class ServidorInterceptor(private val servidorActual: () -> ServidorFoodJet) : Interceptor {
+class ServidorInterceptor(
+    private val servidorActual: () -> ServidorFoodJet
+) : Interceptor {
+
+    private val baseTemplate: HttpUrl = RetrofitClient.TEMPLATE_API_URL.toHttpUrl()
 
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val original = chain.request()
-        val base = ServidorFoodJet.PREDETERMINADO.apiHttpUrl
-        if (original.url.host != base.host) return chain.proceed(original)
+        val hostsPermitidos = ServidorFoodJet.entries.map { it.apiHttpUrl.host }.toSet() + baseTemplate.host
+        if (original.url.host !in hostsPermitidos) return chain.proceed(original)
 
         val destino = servidorActual().apiHttpUrl
-        val prefijoBase = base.pathSegments.filter { it.isNotEmpty() }
-        val relativos = original.url.pathSegments.drop(prefijoBase.size)
+        val segmentos = original.url.pathSegments.filter { it.isNotEmpty() }
+        val idxApi = segmentos.indexOf("api")
+        val relativos = if (idxApi != -1) {
+            segmentos.drop(idxApi + 1)
+        } else {
+            val prefijoBase = baseTemplate.pathSegments.filter { it.isNotEmpty() }
+            original.url.pathSegments.drop(prefijoBase.size)
+        }
+
         val url = original.url.newBuilder()
             .scheme(destino.scheme)
             .host(destino.host)

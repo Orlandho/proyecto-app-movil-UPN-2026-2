@@ -6,18 +6,14 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 /**
  * Servidores contra los que puede trabajar la app.
  *
- * Todos apuntan al proxy Caddy de Pagina-Foodjet (puerto 8081 en local), no a
- * la API directa del 3000: el proxy sirve en el mismo origen la API y los
- * estáticos de la web (por ejemplo los QR de pago de cada local), igual que
- * los ve el navegador.
+ * Incluye el backend local en Node.js + MySQL (puerto 3000),
+ * los contenedores de Docker (puerto 8081 con proxy Caddy)
+ * y el entorno de producción (Cloudflare).
  *
  * - [apiUrl]: base de Retrofit.
  * - [webOrigen]: desde donde se descargan los estáticos que da la API con
  *   ruta relativa (`/img/qr/...`).
- * - [origenMapa]: origen con el que se carga la página del mapa. La key de
- *   Google Maps está restringida por sitio web (`https://foodjet.asen.pe` y
- *   `http://localhost:8081`), así que el mapa tiene que presentarse con uno
- *   de esos dos orígenes aunque el emulador llegue al PC por 10.0.2.2.
+ * - [origenMapa]: origen con el que se carga la página del mapa.
  */
 enum class ServidorFoodJet(
     val etiqueta: String,
@@ -26,6 +22,20 @@ enum class ServidorFoodJet(
     val webOrigen: String,
     val origenMapa: String
 ) {
+    NODE_LOCAL_EMULADOR(
+        etiqueta = "Backend MySQL · Emulador (3000)",
+        descripcion = "Node.js local en este PC (10.0.2.2:3000)",
+        apiUrl = "http://10.0.2.2:3000/api/",
+        webOrigen = "http://10.0.2.2:3000/",
+        origenMapa = "http://localhost:3000/"
+    ),
+    NODE_LOCAL_USB(
+        etiqueta = "Backend MySQL · Celular USB (3000)",
+        descripcion = "Node.js local en este PC con «adb reverse tcp:3000 tcp:3000»",
+        apiUrl = "http://localhost:3000/api/",
+        webOrigen = "http://localhost:3000/",
+        origenMapa = "http://localhost:3000/"
+    ),
     PRODUCCION(
         etiqueta = "Producción",
         descripcion = "foodjet.asen.pe (túnel de Cloudflare)",
@@ -34,14 +44,14 @@ enum class ServidorFoodJet(
         origenMapa = "https://foodjet.asen.pe/"
     ),
     LOCAL_EMULADOR(
-        etiqueta = "Local · emulador",
+        etiqueta = "Docker Caddy · Emulador (8081)",
         descripcion = "Docker en este PC, visto desde el emulador (10.0.2.2:8081)",
         apiUrl = "http://10.0.2.2:8081/api/",
         webOrigen = "http://10.0.2.2:8081/",
         origenMapa = "http://localhost:8081/"
     ),
     LOCAL_USB(
-        etiqueta = "Local · celular por USB",
+        etiqueta = "Docker Caddy · Celular por USB (8081)",
         descripcion = "Docker en este PC con «adb reverse tcp:8081 tcp:8081»",
         apiUrl = "http://localhost:8081/api/",
         webOrigen = "http://localhost:8081/",
@@ -59,9 +69,12 @@ enum class ServidorFoodJet(
     }
 
     companion object {
-        val PREDETERMINADO = PRODUCCION
+        val PREDETERMINADO = NODE_LOCAL_EMULADOR
 
-        fun desdeNombre(nombre: String?): ServidorFoodJet =
-            entries.firstOrNull { it.name == nombre } ?: PREDETERMINADO
+        fun desdeNombre(nombre: String?): ServidorFoodJet = when (nombre) {
+            "NODE_LOCAL_EMULADOR", "BACKEND_LOCAL_EMULADOR" -> NODE_LOCAL_EMULADOR
+            "NODE_LOCAL_USB", "BACKEND_LOCAL_USB" -> NODE_LOCAL_USB
+            else -> entries.firstOrNull { it.name == nombre } ?: PREDETERMINADO
+        }
     }
 }

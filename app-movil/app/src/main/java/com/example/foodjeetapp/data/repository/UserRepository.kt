@@ -3,6 +3,7 @@ package com.example.foodjeetapp.data.repository
 import com.example.foodjeetapp.data.local.SessionDataStore
 import com.example.foodjeetapp.data.model.UserProfile
 import com.example.foodjeetapp.data.remote.ErroresApi
+import com.example.foodjeetapp.data.remote.RetrofitClient
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import com.example.foodjeetapp.data.remote.dto.LoginRequestDto
 import com.example.foodjeetapp.data.remote.dto.RegisterRequestDto
@@ -50,7 +51,10 @@ class UserRepositoryImpl(
      */
     override suspend fun validarSesion(): ValidacionSesion = withContext(ioDispatcher) {
         val token = sessionDataStore.getToken() ?: return@withContext ValidacionSesion.SIN_SESION
-        if (token == "demo_offline_token") return@withContext ValidacionSesion.VALIDA
+        if (token == "demo_offline_token") {
+            sessionDataStore.clearSession()
+            return@withContext ValidacionSesion.RECHAZADA
+        }
         try {
             val response = apiService.getProfile()
             val user = response.body()?.user
@@ -108,26 +112,14 @@ class UserRepositoryImpl(
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            // Manejo de contingencia offline / demo si el servidor no responde
-            val isAdmin = trimmedEmail.contains("admin", ignoreCase = true)
-            val demoName = if (isAdmin) "Admin FoodJet" else if (trimmedEmail.contains("cliente1", ignoreCase = true)) "Cliente 1 Demo" else trimmedEmail.substringBefore("@").replaceFirstChar { it.uppercase() }
-            val demoUser = UserProfile(
-                name = demoName,
-                email = trimmedEmail,
-                phone = "987654321",
-                isStudent = true,
-                isAdmin = isAdmin
+            val servidorActual = RetrofitClient.servidor.etiqueta
+            val causa = e.localizedMessage ?: "Conexión rechazada"
+            Result.failure(
+                Exception(
+                    "No se pudo conectar con el servidor ($servidorActual): $causa. " +
+                    "Asegúrate de que el backend esté ejecutándose o cambia de servidor en la pantalla de inicio."
+                )
             )
-            sessionDataStore.saveSession(
-                token = "demo_offline_token",
-                userId = if (isAdmin) 99 else 1,
-                name = demoUser.name,
-                email = demoUser.email,
-                phone = demoUser.phone,
-                isStudent = demoUser.isStudent,
-                isAdmin = demoUser.isAdmin
-            )
-            Result.success(demoUser)
         }
     }
 
@@ -158,23 +150,14 @@ class UserRepositoryImpl(
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            val demoUser = UserProfile(
-                name = name.trim(),
-                email = email.trim(),
-                phone = phone.trim(),
-                isStudent = false,
-                isAdmin = false
+            val servidorActual = RetrofitClient.servidor.etiqueta
+            val causa = e.localizedMessage ?: "Conexión rechazada"
+            Result.failure(
+                Exception(
+                    "No se pudo conectar con el servidor ($servidorActual): $causa. " +
+                    "Verifica que el backend esté ejecutándose."
+                )
             )
-            sessionDataStore.saveSession(
-                token = "demo_offline_token",
-                userId = 2,
-                name = demoUser.name,
-                email = demoUser.email,
-                phone = demoUser.phone,
-                isStudent = false,
-                isAdmin = false
-            )
-            Result.success(demoUser)
         }
     }
 
@@ -182,21 +165,18 @@ class UserRepositoryImpl(
         try {
             if (isStudent) {
                 val response = apiService.verifyStudent()
-                // 400 es "ya está verificado": el servidor ya lo tiene como estudiante.
                 if (response.isSuccessful || response.code() == 400) {
                     sessionDataStore.updateStudentStatus(true)
                     Result.success(Unit)
                 } else {
-                    sessionDataStore.updateStudentStatus(true)
-                    Result.success(Unit)
+                    Result.failure(Exception(ErroresApi.mensaje(response, "verificar condición de estudiante")))
                 }
             } else {
                 sessionDataStore.updateStudentStatus(false)
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            sessionDataStore.updateStudentStatus(isStudent)
-            Result.success(Unit)
+            Result.failure(Exception("Error de conexión al actualizar condición de estudiante: ${e.localizedMessage ?: "Sin conexión"}"))
         }
     }
 
