@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "seed": "node prisma/seed.js",
     "test": "cd .. && npm run test:backend"
   },
   "keywords": [],

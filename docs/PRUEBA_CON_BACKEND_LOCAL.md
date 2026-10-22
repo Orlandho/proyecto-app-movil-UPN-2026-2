@@ -19,6 +19,21 @@ Puedes alternar entre los siguientes servidores según tu entorno de trabajo:
 
 ## 1. Levantar el Backend Node.js con MySQL en tu PC
 
+### Paso A: Asegurar que el servicio de MySQL esté corriendo
+En Windows PowerShell:
+```powershell
+Get-Service MySQL80
+# Si no está en ejecución, inícialo con:
+Start-Service MySQL80
+```
+
+### Paso B: Verificar que el puerto 3000 esté libre
+Si anteriormente levantaste contenedores Docker de FoodJet, asegúrate de detener el contenedor que usa el puerto 3000 para evitar conflictos `EADDRINUSE`:
+```powershell
+docker stop foodjet-api
+```
+
+### Paso C: Iniciar el servidor Express en modo desarrollo
 En una terminal PowerShell o CMD:
 
 ```powershell
@@ -30,6 +45,11 @@ npm run dev
 ```powershell
 curl http://localhost:3000/api/products
 ```
+
+> [!TIP]
+> Si alguna vez necesitas re-sincronizar las tablas o re-poblar los datos de prueba, ejecuta en `backend/`:
+> `npx prisma db push` y luego `npm run seed`.
+> Para más detalles de configuración avanzada y visualización con Prisma Studio, consulta [`backend/README.md`](../backend/README.md).
 
 **Credenciales de prueba sembradas en MySQL:**
 - Cliente: `cliente1@mail.com` / `Cliente123!` (estudiante verificado, aplica descuentos).

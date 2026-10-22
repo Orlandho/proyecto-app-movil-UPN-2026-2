@@ -1,6 +1,6 @@
-# 🚀 Guía Técnica de Integración: App Móvil FoodJet ↔ Backend Node.js / PostgreSQL
+# 🚀 Guía Técnica de Integración: App Móvil FoodJet ↔ Backend Node.js / MySQL
 
-Este documento establece la especificación técnica, arquitectura y plan de acción detallado para conectar la aplicación móvil Android ([`FoodJetApp`](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/app/src/main/java/com/example/foodjeetapp/ui/FoodJetApp.kt)) al backend de **FoodJet** ubicado en [`Pagina-Foodjet/backend`](file:///C:/Users/Orlando/Desktop/Pagina-Foodjet/backend/src/index.js), eliminando todo dato simulado (*mock*) y dejando el sistema listo para producción.
+Este documento establece la especificación técnica, arquitectura y plan de acción detallado para conectar la aplicación móvil Android ([`FoodJetApp`](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/app-movil/app/src/main/java/com/example/foodjeetapp/ui/FoodJetApp.kt)) al backend de **FoodJet** ubicado en la carpeta [`backend/`](../backend/) de este repositorio (migrado a **MySQL**), eliminando todo dato simulado (*mock*) y permitiendo también el consumo de servidores alternativos (Docker Caddy o Cloudflare).
 
 Esta guía se rige de forma estricta por los requerimientos técnicos semanales definidos en el archivo [AGENTS.md](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/AGENTS.md).
 
@@ -383,26 +383,27 @@ class UserRepositoryImpl(
 
 ---
 
-## 4. Verificación y Pruebas en Vivo con el Backend Local
+## 4. Verificación y Pruebas en Vivo con el Backend Local (MySQL)
 
 Para probar la integración de extremo a extremo sin datos simulados:
 
-1. **Iniciar el Backend de FoodJet:**
-   * Abre una terminal en `Pagina-Foodjet` y ejecuta:
-     ```bash
-     docker compose up -d
-     ```
-   * O ejecuta directamente el servidor Node.js en `Pagina-Foodjet/backend`:
-     ```bash
+1. **Iniciar el Backend Node.js con MySQL (`backend/`):**
+   * Asegúrate de que el servicio `MySQL80` esté corriendo en Windows (`Start-Service MySQL80`).
+   * Abre una terminal en `backend/` y ejecuta:
+     ```powershell
+     cd backend
      npm run dev
      ```
-   * Verifica que la consola indique: `🚀 Servidor ejecutándose en http://localhost:3000`.
+   * Verifica que la consola indique: `🚀 Servidor FoodJet ejecutándose en http://localhost:3000`.
+   * Si el puerto 3000 estuviera ocupado por un contenedor Docker previo de `Pagina-Foodjet`, ejecuta `docker stop foodjet-api`.
+   * Para guía detallada de configuración y resolución de problemas, consulta [`backend/README.md`](../backend/README.md) y [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](PRUEBA_CON_BACKEND_LOCAL.md).
 
-2. **Cuentas Reales de Prueba (Sembradas en PostgreSQL):**
-   * **Cliente Estudiante:** `cliente1@mail.com` / `Cliente123!` (verificará descuento en productos).
-   * **Cliente Estándar:** `cliente2@mail.com` / `Cliente123!`.
-   * **Administrador:** `admin@foodjet.com` / `Admin123!`.
+2. **Cuentas Reales de Prueba (Sembradas en MySQL):**
+   * **Cliente Estudiante:** `cliente1@mail.com` / `Cliente123!` (aplica 20% de descuento en productos seleccionados).
+   * **Cliente Regular:** `cliente2@mail.com` / `Cliente123!` (cuenta estándar).
+   * **Administrador:** `admin@foodjet.com` / `Admin123!` (acceso al Panel de Operaciones).
 
 3. **Verificación en Android Studio:**
-   * Ejecuta la app en el emulador virtual.
-   * Abre la pestaña **Logcat** y filtra por `OkHttp` para observar en vivo el envío de cabeceras `Authorization: Bearer ...` y las respuestas HTTP `200 OK` con datos reales de la base de datos PostgreSQL.
+   * Abre la carpeta [`app-movil`](../app-movil/) como proyecto raíz en Android Studio.
+   * Ejecuta la app en el emulador virtual (servidor predeterminado: `Backend MySQL · Emulador (3000)` en `http://10.0.2.2:3000/api/`).
+   * Abre la pestaña **Logcat** y filtra por `OkHttp` para observar en vivo el envío de cabeceras `Authorization: Bearer ...` y las respuestas HTTP `200 OK` con datos reales de la base de datos MySQL.
