@@ -30,91 +30,99 @@ fun FoodJetTopBar(
     onLogoClick: () -> Unit,
     onCartClick: () -> Unit,
     onFavoritesClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    TopAppBar(
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onLogoClick() }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(FoodJetPrimary),
-                    contentAlignment = Alignment.Center
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        TopAppBar(
+            modifier = Modifier.statusBarsPadding(),
+            windowInsets = WindowInsets(0, 0, 0, 0),
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onLogoClick() }
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(FoodJetPrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🚀",
+                            fontSize = 18.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "🚀",
-                        fontSize = 18.sp
+                        text = "FoodJet",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "FoodJet",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        },
-        actions = {
-            // Botón de Favoritos con Badge
-            BadgedBox(
-                badge = {
-                    if (favoritesCount > 0) {
-                        Badge(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
-                        ) {
-                            Text(favoritesCount.toString())
-                        }
-                    }
-                }
-            ) {
+            },
+            actions = {
+                // Botón de Favoritos con Badge
                 IconButton(onClick = onFavoritesClick) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
-                        contentDescription = "Ver favoritos",
-                        tint = if (favoritesCount > 0) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Botón de Carrito con Badge
-            BadgedBox(
-                badge = {
-                    if (cartCount > 0) {
-                        Badge(
-                            containerColor = FoodJetPrimaryDark,
-                            contentColor = Color.White
-                        ) {
-                            Text(cartCount.toString())
+                    BadgedBox(
+                        badge = {
+                            if (favoritesCount > 0) {
+                                Badge(
+                                    containerColor = Color.Red,
+                                    contentColor = Color.White
+                                ) {
+                                    Text(favoritesCount.toString())
+                                }
+                            }
                         }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Ver favoritos",
+                            tint = if (favoritesCount > 0) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            ) {
+
+                // Botón de Carrito con Badge
                 IconButton(onClick = onCartClick) {
+                    BadgedBox(
+                        badge = {
+                            if (cartCount > 0) {
+                                Badge(
+                                    containerColor = FoodJetPrimaryDark,
+                                    contentColor = Color.White
+                                ) {
+                                    Text(cartCount.toString())
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Ver carrito de compras",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                // Botón de Perfil / Login
+                IconButton(onClick = onProfileClick) {
                     Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Ver carrito de compras",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = if (isLoggedIn) "Perfil de $userName" else "Iniciar sesión",
+                        tint = if (isLoggedIn) FoodJetPrimaryDark else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            // Botón de Perfil / Login
-            IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = if (isLoggedIn) "Perfil de $userName" else "Iniciar sesión",
-                    tint = if (isLoggedIn) FoodJetPrimaryDark else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         )
-    )
+    }
 }

@@ -113,6 +113,7 @@ fun FoodJetApp(
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
 
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cartCount = cartItems.sumOf { it.quantity }
 
     // Intent explícito del acceso directo "Seguir pedido #N".
@@ -378,7 +379,6 @@ fun FoodJetApp(
 
     // Modal BottomSheet del Carrito
     if (showCartSheet) {
-        val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showCartSheet = false },
             sheetState = bottomSheetState
