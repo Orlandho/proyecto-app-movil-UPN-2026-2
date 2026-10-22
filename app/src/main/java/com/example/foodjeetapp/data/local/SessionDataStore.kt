@@ -6,9 +6,12 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.foodjeetapp.data.model.UserProfile
 import com.example.foodjeetapp.data.remote.ServidorFoodJet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foodjet_session")
 
@@ -32,6 +35,20 @@ class SessionDataStore(private val context: Context) {
             KEY_TOKEN, KEY_USER_ID, KEY_NAME, KEY_EMAIL, KEY_PHONE, KEY_IS_STUDENT, KEY_IS_ADMIN
         )
     }
+
+    // Caché reactivo en memoria para acceso inmediato sin bloquear el hilo principal (Bug 1)
+    @Volatile
+    private var cachedToken: String? = null
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            tokenFlow.collect { token ->
+                cachedToken = token
+            }
+        }
+    }
+
+    fun getCachedToken(): String? = cachedToken
 
     val tokenFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[KEY_TOKEN]
@@ -66,6 +83,7 @@ class SessionDataStore(private val context: Context) {
         isStudent: Boolean,
         isAdmin: Boolean = false
     ) {
+        cachedToken = token
         context.dataStore.edit { preferences ->
             preferences[KEY_TOKEN] = token
             preferences[KEY_USER_ID] = userId
@@ -85,6 +103,7 @@ class SessionDataStore(private val context: Context) {
 
     /** Cierra la sesión. El servidor elegido no es parte de la sesión y se conserva. */
     suspend fun clearSession() {
+        cachedToken = null
         context.dataStore.edit { preferences ->
             CLAVES_SESION.forEach { preferences.remove(it) }
         }
@@ -97,6 +116,6 @@ class SessionDataStore(private val context: Context) {
     }
 
     suspend fun getToken(): String? {
-        return tokenFlow.firstOrNull()
+        return cachedToken ?: tokenFlow.firstOrNull()
     }
 }

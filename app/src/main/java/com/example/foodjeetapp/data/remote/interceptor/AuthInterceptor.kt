@@ -2,6 +2,7 @@ package com.example.foodjeetapp.data.remote.interceptor
 
 import com.example.foodjeetapp.data.local.SessionDataStore
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Interceptor
 import okhttp3.Response
 
@@ -14,8 +15,12 @@ class AuthInterceptor(private val sessionDataStore: SessionDataStore) : Intercep
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
 
-        // Recuperar el token JWT almacenado en DataStore
-        val token = runBlocking { sessionDataStore.getToken() }
+        // Recuperar el token JWT de manera no bloqueante desde la caché en memoria (Bug 1)
+        val token = sessionDataStore.getCachedToken() ?: runBlocking {
+            withTimeoutOrNull(250) {
+                sessionDataStore.getToken()
+            }
+        }
 
         val requestBuilder = original.newBuilder()
         if (!token.isNullOrBlank()) {

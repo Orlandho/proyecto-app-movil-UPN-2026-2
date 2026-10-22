@@ -37,6 +37,9 @@ class AuthViewModel(
     private val _sesionRechazada = MutableStateFlow(false)
     val sesionRechazada: StateFlow<Boolean> = _sesionRechazada.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     init {
         // Observar la sesión persistida en DataStore
         viewModelScope.launch {
@@ -68,8 +71,10 @@ class AuthViewModel(
 
     fun login(email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
+            _isLoading.value = true
             _errorMessage.value = null
             val result = userRepository.login(email, password)
+            _isLoading.value = false
             result.onSuccess { profile ->
                 _currentUser.value = profile
                 _isLoggedIn.value = true
@@ -91,8 +96,10 @@ class AuthViewModel(
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
+            _isLoading.value = true
             _errorMessage.value = null
             val result = userRepository.register(name, email, phone, password)
+            _isLoading.value = false
             result.onSuccess { profile ->
                 _currentUser.value = profile
                 _isLoggedIn.value = true
@@ -103,6 +110,10 @@ class AuthViewModel(
                 onError(msg)
             }
         }
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 
     fun verifyStudent(onSuccess: () -> Unit, onError: (String) -> Unit = {}) {

@@ -97,6 +97,8 @@ fun FoodJetApp(
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
     val servidor by authViewModel.servidor.collectAsStateWithLifecycle()
+    val isAuthLoading by authViewModel.isLoading.collectAsStateWithLifecycle()
+    val authErrorMessage by authViewModel.errorMessage.collectAsStateWithLifecycle()
 
     val activeUser = currentUser ?: UserProfile(name = "Invitado", email = "", phone = "", isStudent = false)
 
@@ -111,7 +113,9 @@ fun FoodJetApp(
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
 
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var loginError by remember { mutableStateOf<String?>(null) }
+    var registerError by remember { mutableStateOf<String?>(null) }
+
     val cartCount = cartItems.sumOf { it.quantity }
 
     // Intent explícito del acceso directo "Seguir pedido #N".
@@ -181,6 +185,7 @@ fun FoodJetApp(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (rutaActual !in Rutas.SIN_BARRAS) {
@@ -193,7 +198,13 @@ fun FoodJetApp(
                     onCartClick = { showCartSheet = true },
                     onFavoritesClick = { irA(Rutas.FAVORITOS) },
                     onProfileClick = {
-                        if (isLoggedIn) showMiCuentaDialog = true else showLoginDialog = true
+                        if (isLoggedIn) {
+                            showMiCuentaDialog = true
+                        } else {
+                            loginError = null
+                            authViewModel.clearError()
+                            showLoginDialog = true
+                        }
                     }
                 )
             }
@@ -205,7 +216,13 @@ fun FoodJetApp(
                     favoritesCount = favorites.size,
                     onNavigate = { route ->
                         if (route == "profile") {
-                            if (isLoggedIn) showMiCuentaDialog = true else showLoginDialog = true
+                            if (isLoggedIn) {
+                                showMiCuentaDialog = true
+                            } else {
+                                loginError = null
+                                authViewModel.clearError()
+                                showLoginDialog = true
+                            }
                         } else {
                             irA(route)
                         }
@@ -375,11 +392,12 @@ fun FoodJetApp(
         }
     }
 
-    // Modal BottomSheet del Carrito
+    // Modal BottomSheet del Carrito (Instancia fresca por apertura para evitar estado Hidden persistente - Bug 3)
     if (showCartSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showCartSheet = false },
-            sheetState = bottomSheetState
+            sheetState = sheetState
         ) {
             CartSheet(
                 cartItems = cartItems,
@@ -410,33 +428,51 @@ fun FoodJetApp(
                     avisar("Ahora usas ${nuevo.etiqueta}")
                 }
             },
-            onDismiss = { showLoginDialog = false },
+            onDismiss = {
+                showLoginDialog = false
+                loginError = null
+                authViewModel.clearError()
+            },
             onLoginSuccess = { email, password ->
+                loginError = null
                 authViewModel.login(
                     email = email,
                     password = password,
                     onSuccess = { userName ->
                         showLoginDialog = false
+                        loginError = null
                         // Recargar pedidos y favoritos del usuario recién logueado
                         orderViewModel.loadOrders()
                         homeViewModel.loadFavorites()
                         avisar("¡Bienvenido, $userName!")
                     },
-                    onError = ::avisar
+                    onError = { err ->
+                        loginError = err
+                        avisar(err)
+                    }
                 )
             },
             onSwitchToRegister = {
                 showLoginDialog = false
+                loginError = null
+                authViewModel.clearError()
                 showRegisterDialog = true
-            }
+            },
+            errorMessage = loginError ?: authErrorMessage,
+            isLoading = isAuthLoading
         )
     }
 
     // Diálogo de Registro
     if (showRegisterDialog) {
         RegisterDialog(
-            onDismiss = { showRegisterDialog = false },
+            onDismiss = {
+                showRegisterDialog = false
+                registerError = null
+                authViewModel.clearError()
+            },
             onRegisterSuccess = { name, email, phone, password ->
+                registerError = null
                 authViewModel.register(
                     name = name,
                     email = email,
@@ -444,17 +480,25 @@ fun FoodJetApp(
                     password = password,
                     onSuccess = {
                         showRegisterDialog = false
+                        registerError = null
                         orderViewModel.loadOrders()
                         homeViewModel.loadFavorites()
                         avisar("¡Cuenta creada exitosamente!")
                     },
-                    onError = ::avisar
+                    onError = { err ->
+                        registerError = err
+                        avisar(err)
+                    }
                 )
             },
             onSwitchToLogin = {
                 showRegisterDialog = false
+                registerError = null
+                authViewModel.clearError()
                 showLoginDialog = true
-            }
+            },
+            errorMessage = registerError ?: authErrorMessage,
+            isLoading = isAuthLoading
         )
     }
 

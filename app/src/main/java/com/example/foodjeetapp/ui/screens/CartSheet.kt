@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -40,6 +39,7 @@ fun CartSheet(
     modifier: Modifier = Modifier
 ) {
     val total = cartItems.sumOf { it.product.getEffectivePrice(isStudent) * it.quantity }
+    val totalCount = cartItems.sumOf { it.quantity }
 
     Column(
         modifier = modifier
@@ -60,7 +60,7 @@ fun CartSheet(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Badge(containerColor = FoodJetPrimary, contentColor = Color.Black) {
-                    Text(cartItems.sumOf { it.quantity }.toString())
+                    Text(totalCount.toString())
                 }
             }
             IconButton(onClick = onClose) {
@@ -74,7 +74,7 @@ fun CartSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 48.dp),
+                    .padding(vertical = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -87,11 +87,23 @@ fun CartSheet(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "¡Agrega productos deliciosos desde el menú!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onClose,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FoodJetPrimary,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("Explorar Menú", fontWeight = FontWeight.Bold)
+                }
             }
         } else {
             LazyColumn(
@@ -100,14 +112,16 @@ fun CartSheet(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(cartItems) { item ->
+                items(cartItems, key = { it.product.id }) { item ->
                     val effectivePrice = item.product.getEffectivePrice(isStudent)
                     val hasDiscount = isStudent && item.product.descuentoEstudiante > 0
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        )
                     ) {
                         Row(
                             modifier = Modifier
@@ -171,7 +185,11 @@ fun CartSheet(
                                     onClick = { onDecreaseQty(item.product.id) },
                                     modifier = Modifier.size(28.dp)
                                 ) {
-                                    Icon(Icons.Default.Remove, contentDescription = "Disminuir", modifier = Modifier.size(16.dp))
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = "Disminuir",
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                                 Text(
                                     text = item.quantity.toString(),
@@ -183,7 +201,11 @@ fun CartSheet(
                                     onClick = { onIncreaseQty(item.product.id) },
                                     modifier = Modifier.size(28.dp)
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Aumentar", modifier = Modifier.size(16.dp))
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Aumentar",
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
                         }
@@ -202,13 +224,13 @@ fun CartSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Total:",
-                    fontSize = 18.sp,
+                    text = "Subtotal estimado:",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = "S/ ${String.format("%.2f", total)}",
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )

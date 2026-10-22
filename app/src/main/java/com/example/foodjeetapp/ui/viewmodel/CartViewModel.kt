@@ -11,11 +11,6 @@ import kotlinx.coroutines.flow.update
 /**
  * ViewModel para la gestión reactiva del carrito de compras.
  * Cumple con REQ-SEM06-LOG-01 y REQ-SEM06-LOG-02.
- *
- * Los importes de aquí son la vista previa del carrito. El precio que se
- * cobra lo calcula el backend al crear el pedido (descuento de estudiante,
- * cupón, IGV y envío), y es el que muestra después el seguimiento. Los
- * cupones se aplican en el checkout contra los que existen en el backend.
  */
 class CartViewModel : ViewModel() {
 
@@ -27,10 +22,10 @@ class CartViewModel : ViewModel() {
             val index = current.indexOfFirst { it.product.id == product.id }
             if (index != -1) {
                 current.mapIndexed { idx, item ->
-                    if (idx == index) item.copy(quantity = item.quantity + 1) else item
+                    if (idx == index) item.copy(quantity = item.quantity + 1) else item.copy()
                 }
             } else {
-                current + CartItem(product = product, quantity = 1)
+                current + CartItem(product = product.copy(), quantity = 1)
             }
         }
     }
@@ -38,7 +33,7 @@ class CartViewModel : ViewModel() {
     fun increaseQuantity(productId: Int) {
         _cartItems.update { current ->
             current.map {
-                if (it.product.id == productId) it.copy(quantity = it.quantity + 1) else it
+                if (it.product.id == productId) it.copy(quantity = it.quantity + 1) else it.copy()
             }
         }
     }
@@ -48,8 +43,14 @@ class CartViewModel : ViewModel() {
             current.mapNotNull {
                 if (it.product.id == productId) {
                     if (it.quantity > 1) it.copy(quantity = it.quantity - 1) else null
-                } else it
+                } else it.copy()
             }
+        }
+    }
+
+    fun removeFromCart(productId: Int) {
+        _cartItems.update { current ->
+            current.filterNot { it.product.id == productId }
         }
     }
 
