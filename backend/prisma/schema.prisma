@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique
+  descripcion String? @db.Text
+}
+
+model DeliveryAddress {
+  id                  Int     @id @default(autoincrement())
+  usuario_id          Int
+  direccion_detallada String  @db.Text
+  referencia          String? @db.Text
+  latitud             Float?
+  longitud            Float?
+  es_predeterminada   Boolean @default(false)
+  User                User    @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  Order               Order[]
+}
+
+model DiscountCoupon {
+  id                   Int      @id @default(autoincrement())
+  codigo               String   @unique
+  porcentaje_descuento Float
+  monto_maximo         Float?
+  fecha_expiracion     DateTime
+  estado               String   @default("Activo")
+  Order                Order[]
+}
+
+model Order {
+  id                             Int             @id @default(autoincrement())
+  user_id                        Int
+  restaurante_id                 Int
+  direccion_entrega_id           Int
+  repartidor_id                  Int?
+  cupon_id                       Int?
+  total                          Float
+  impuestos                      Float           @default(0.0)
+  costo_envio                    Float           @default(0.0)
+  estado                         String          @default("Pendiente")
+  fecha                          DateTime        @default(now())
+  /// Momento en que el pedido salió a reparto. Sirve de origen para calcular
+  /// por dónde va el repartidor y cuánto le queda.
+  envio_iniciado_en              DateTime?
+  /// Ruta del local a la dirección de entrega, como lista de [lat, lon].
+  /// Se calcula una sola vez al salir a reparto y se guarda, para que la
+  /// simulación no dependa de que el servicio de rutas siga disponible.
+  ruta                           Json?
+  distancia_metros               Float?
+  eta_minutos                    Int?
+  /// Posición actual del repartidor, que avanza a lo largo de la ruta.
+  repartidor_lat                 Float?
+  repartidor_lon                 Float?
+  /// Cuántos segundos dura cada estado en la simulación del pedido, por
+  /// ejemplo {"pendiente": 12, "confirmado": 6, "en_preparacion": 66,
+  /// "en_camino": 86}. Un estado sin duración no avanza solo. Null en los
+  /// pedidos anteriores a la simulación.
+  plan_tiempos                   Json?
+  DiscountCoupon                 DiscountCoupon? @relation(fields: [cupon_id], references: [id])
+  DeliveryAddress                DeliveryAddress @relation(fields: [direccion_entrega_id], references: [id])
+  User_Order_repartidor_idToUser User?           @relation("Order_repartidor_idToUser", fields: [repartidor_id], references: [id])
+  Restaurant                     Restaurant      @relation(fields: [restaurante_id], references: [id])
+  User_Order_user_idToUser       User            @relation("Order_user_idToUser", fields: [user_id], references: [id])
+  OrderItem                      OrderItem[]
+  Review                         Review?
+  SupportTicket                  SupportTicket[]
+  Transaction                    Transaction?
+  OrderStatusHistory             OrderStatusHistory[]
+}
+
+/// Cada cambio de estado de un pedido: cuándo pasó y quién lo provocó.
+/// De aquí salen las horas de la línea de tiempo del seguimiento.
+model OrderStatusHistory {
+  id        Int      @id @default(autoincrement())
+  pedido_id Int
+  estado    String
+  fecha     DateTime @default(now())
+  /// cliente, personal, simulador o sistema
+  origen    String
+  Order     Order    @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+
+  @@index([pedido_id, fecha])
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  order_id        Int
+  product_id      Int
+  cantidad        Int
+  precio_unitario Float
+  Order           Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  Product         Product @relation(fields: [product_id], references: [id])
+}
+
+model Product {
+  id                   Int         @id @default(autoincrement())
+  restaurante_id       Int
+  nombre               String
+  descripcion          String?     @db.Text
+  precio               Float
+  tipo_comida          String?     @default("General")
+  imagen_url           String?     @db.Text
+  descuento_estudiante Float?      @default(0.0)
+  disponibilidad       Boolean     @default(true)
+  OrderItem            OrderItem[]
+  Restaurant           Restaurant  @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  User                 User[]      @relation("UserFavoriteProducts")
+}
+
+model Restaurant {
+  id                    Int       @id @default(autoincrement())
+  nombre                String
+  descripcion           String?   @db.Text
+  direccion             String?   @db.Text
+  latitud               Float?
+  longitud              Float?
+  estado_afiliacion     String    @default("pendiente")
+  tiempo_entrega        String?   @default("30 minutos")
+  calificacion_promedio Float?    @default(0.0)
+  qr_pago               String?   @db.Text
+  Order                 Order[]
+  Product               Product[]
+  Review                Review[]
+}
+
+model Review {
+  id                Int        @id @default(autoincrement())
+  usuario_id        Int
+  restaurante_id    Int
+  pedido_id         Int        @unique
+  puntuacion        Int
+  comentario        String?    @db.Text
+  fecha_publicacion DateTime   @default(now())
+  Order             Order      @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+  Restaurant        Restaurant @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  User              User       @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+}
+
+model SupportMessage {
+  id                  Int           @id @default(autoincrement())
+  ticket_id           Int
+  emisor_id           Int
+  mensaje             String        @db.Text
+  archivo_adjunto_url String?       @db.Text
+  fecha_envio         DateTime      @default(now())
+  User                User          @relation(fields: [emisor_id], references: [id])
+  SupportTicket       SupportTicket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id                                         Int              @id @default(autoincrement())
+  usuario_id                                 Int
+  pedido_id                                  Int?
+  agente_soporte_id                          Int?
+  asunto                                     String
+  descripcion_problema                       String           @db.Text
+  estado                                     String           @default("Abierto")
+  fecha_apertura                             DateTime         @default(now())
+  fecha_cierre                               DateTime?
+  SupportMessage                             SupportMessage[]
+  User_SupportTicket_agente_soporte_idToUser User?            @relation("SupportTicket_agente_soporte_idToUser", fields: [agente_soporte_id], references: [id])
+  Order                                      Order?           @relation(fields: [pedido_id], references: [id])
+  User_SupportTicket_usuario_idToUser        User             @relation("SupportTicket_usuario_idToUser", fields: [usuario_id], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id                Int      @id @default(autoincrement())
+  pedido_id         Int      @unique
+  metodo_pago       String
+  monto             Float
+  estado_pago       String   @default("Pendiente")
+  fecha_transaccion DateTime @default(now())
+  Order             Order    @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                                                  Int               @id @default(autoincrement())
+  nombre                                              String
+  email                                               String            @unique
+  password                                            String
+  telefono                                            String
+  foto_perfil                                         String?           @db.Text
+  rol                                                 String            @default("Cliente")
+  es_estudiante                                       Boolean           @default(false)
+  createdAt                                           DateTime          @default(now())
+  DeliveryAddress                                     DeliveryAddress[]
+  Order_Order_repartidor_idToUser                     Order[]           @relation("Order_repartidor_idToUser")
+  Order_Order_user_idToUser                           Order[]           @relation("Order_user_idToUser")
+  Review                                              Review[]
+  SupportMessage                                      SupportMessage[]
+  SupportTicket_SupportTicket_agente_soporte_idToUser SupportTicket[]   @relation("SupportTicket_agente_soporte_idToUser")
+  SupportTicket_SupportTicket_usuario_idToUser        SupportTicket[]   @relation("SupportTicket_usuario_idToUser")
+  Product                                             Product[]         @relation("UserFavoriteProducts")
+}

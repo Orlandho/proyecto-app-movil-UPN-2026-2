@@ -2,9 +2,14 @@
 .gradle/
 .kotlin/
 build/
+app-movil/.gradle/
+app-movil/.kotlin/
+app-movil/build/
+app-movil/app/build/
 
 # Local configuration file (sdk path, etc)
 local.properties
+app-movil/local.properties
 
 # Log/OS Files
 *.log
@@ -16,9 +21,10 @@ captures/
 *.apk
 output.json
 
-# IntelliJ
+# IntelliJ / IDEs
 *.iml
 .idea/
+app-movil/.idea/
 misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
@@ -32,3 +38,9 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Backend (Node.js & Prisma)
+backend/node_modules/
+backend/.env
+backend/.env.local
+backend/npm-debug.log*

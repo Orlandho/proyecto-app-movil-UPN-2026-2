@@ -8,19 +8,19 @@ La aplicación móvil está diseñada para operar de forma complementaria y coor
 
 ### 1. Consumo del Backend de FoodJet
 La aplicación móvil Kotlin debe consumir la API REST del backend de FoodJet (Node.js con Express, Prisma ORM y base de datos relacional PostgreSQL):
-- **Base URL:** Se elige en la app (Mi cuenta o Iniciar sesión → Servidor) y se guarda con DataStore; las opciones están en [`ServidorFoodJet`](app/src/main/java/com/example/foodjeetapp/data/remote/ServidorFoodJet.kt) y [`RetrofitClient`](app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt) la aplica a cada petición: producción por el túnel de Cloudflare `https://foodjet.asen.pe/api/` (predeterminada), el Docker local desde el emulador `http://10.0.2.2:8081/api/`, o desde un celular por USB `http://localhost:8081/api/` con `adb reverse tcp:8081 tcp:8081`. Siempre se usa el proxy Caddy (8081) y no la API directa del 3000, porque el proxy sirve también los estáticos de la web, como los QR de pago. Guía en [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md).
-- **Autenticación y Seguridad:** El backend gestiona sesiones mediante tokens JWT. La app móvil almacena el token en [`SessionDataStore`](app/src/main/java/com/example/foodjeetapp/data/local/SessionDataStore.kt) y lo adjunta automáticamente en cada petición mediante [`AuthInterceptor`](app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/AuthInterceptor.kt) (`Authorization: Bearer <token>`).
-- **Servicios de Red y Endpoints:** Definidos en la interfaz suspendida [`FoodJetApiService`](app/src/main/java/com/example/foodjeetapp/data/remote/api/FoodJetApiService.kt):
+- **Base URL:** Se elige en la app (Mi cuenta o Iniciar sesión → Servidor) y se guarda con DataStore; las opciones están en [`ServidorFoodJet`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/ServidorFoodJet.kt) y [`RetrofitClient`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt) la aplica a cada petición: producción por el túnel de Cloudflare `https://foodjet.asen.pe/api/` (predeterminada), el Docker local desde el emulador `http://10.0.2.2:8081/api/`, o desde un celular por USB `http://localhost:8081/api/` con `adb reverse tcp:8081 tcp:8081`. Siempre se usa el proxy Caddy (8081) y no la API directa del 3000, porque el proxy sirve también los estáticos de la web, como los QR de pago. Guía en [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md).
+- **Autenticación y Seguridad:** El backend gestiona sesiones mediante tokens JWT. La app móvil almacena el token en [`SessionDataStore`](app-movil/app/src/main/java/com/example/foodjeetapp/data/local/SessionDataStore.kt) y lo adjunta automáticamente en cada petición mediante [`AuthInterceptor`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/AuthInterceptor.kt) (`Authorization: Bearer <token>`).
+- **Servicios de Red y Endpoints:** Definidos en la interfaz suspendida [`FoodJetApiService`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/api/FoodJetApiService.kt):
   - Autenticación: `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me`.
   - Catálogo de Productos: `GET /api/products`.
   - Pedidos: `GET /api/orders/my-orders`, `POST /api/orders` (con cálculo de subtotal, IGV y descuentos).
   - Direcciones: `GET /api/addresses`, `POST /api/addresses`.
   - Calificaciones: `POST /api/reviews`.
-- **Caché y Persistencia Local:** Sincronización offline-first combinando Retrofit con la base de datos Room [`FoodJetDatabase`](app/src/main/java/com/example/foodjeetapp/data/local/FoodJetDatabase.kt) para navegación ininterrumpida aun sin conectividad.
+- **Caché y Persistencia Local:** Sincronización offline-first combinando Retrofit con la base de datos Room [`FoodJetDatabase`](app-movil/app/src/main/java/com/example/foodjeetapp/data/local/FoodJetDatabase.kt) para navegación ininterrumpida aun sin conectividad.
 
 ### 2. Paridad Visual y Paleta Cromática del Frontend Web
 La aplicación móvil implementa Material Design 3 con Jetpack Compose y debe reflejar con máxima fidelidad la identidad visual, componentes y paleta cromática del frontend web de FoodJet (`Pagina-Foodjet/frontend/styles.css`):
-- **Paleta Cromática de Marca (definida en [`Color.kt`](app/src/main/java/com/example/foodjeetapp/ui/theme/Color.kt)):**
+- **Paleta Cromática de Marca (definida en [`Color.kt`](app-movil/app/src/main/java/com/example/foodjeetapp/ui/theme/Color.kt)):**
   - `FoodJetPrimary`: `#F5AF69` (Naranja apetitoso insignia de FoodJet).
   - `FoodJetPrimaryDark`: `#F39D4A` (Variante de énfasis y pulsación).
   - `FoodJetPrimaryLight`: `#FEF3E8` (Contenedores suaves y fondos de tarjetas seleccionadas).
@@ -79,23 +79,23 @@ flowchart TD
 El agente Jules debe enfocar sus intervenciones exclusivamente en las siguientes rutas según la naturaleza del cambio:
 
 1. **Capa Visual y Experiencia de Usuario (UI):**
-   - `app/src/main/java/com/example/foodjeetapp/ui/screens/`: Pantallas completas de la aplicación (`HomeScreen.kt`, `CheckoutScreen.kt`, `CartSheet.kt`, `FavoritesScreen.kt`, `OrderHistoryScreen.kt`, `TrackingScreen.kt`, `AdminDashboardScreen.kt`, `Modals.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/ui/components/`: Componentes composables reutilizables (`ProductCard.kt`, `HeroCarousel.kt`, `FilterSection.kt`, `FoodJetTopBar.kt`, `FoodJetBottomBar.kt`, `FeatureBadgesRow.kt`, `StarRatingBar.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/ui/theme/`: Definición de tema (`Color.kt`, `Theme.kt`, `Type.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/screens/`: Pantallas completas de la aplicación (`HomeScreen.kt`, `CheckoutScreen.kt`, `CartSheet.kt`, `FavoritesScreen.kt`, `OrderHistoryScreen.kt`, `TrackingScreen.kt`, `AdminDashboardScreen.kt`, `Modals.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/components/`: Componentes composables reutilizables (`ProductCard.kt`, `HeroCarousel.kt`, `FilterSection.kt`, `FoodJetTopBar.kt`, `FoodJetBottomBar.kt`, `FeatureBadgesRow.kt`, `StarRatingBar.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/theme/`: Definición de tema (`Color.kt`, `Theme.kt`, `Type.kt`).
 
 2. **Capa de Lógica de Negocio y Presentación (ViewModels):**
-   - `app/src/main/java/com/example/foodjeetapp/ui/viewmodel/`: Clases ViewModel responsables de exponer el estado inmutable `StateFlow` hacia las vistas (`HomeViewModel.kt`, `CartViewModel.kt`, `OrderViewModel.kt`, `AuthViewModel.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/viewmodel/`: Clases ViewModel responsables de exponer el estado inmutable `StateFlow` hacia las vistas (`HomeViewModel.kt`, `CartViewModel.kt`, `OrderViewModel.kt`, `AuthViewModel.kt`).
 
 3. **Capa de Servicios de Red, DTOs y Repositorios:**
-   - `app/src/main/java/com/example/foodjeetapp/data/remote/api/`: Definición de contratos Retrofit (`FoodJetApiService.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/data/remote/dto/`: Clases de transferencia de datos inmutables (`ProductDtos.kt`, `OrderDtos.kt`, `AuthDtos.kt`, `AddressDtos.kt`, `ReviewDtos.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/`: Interceptores de red (`AuthInterceptor.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt`: Cliente OkHttp y Retrofit.
-   - `app/src/main/java/com/example/foodjeetapp/data/repository/`: Implementaciones de repositorio como única fuente de verdad (`ProductRepository.kt`, `OrderRepository.kt`, `UserRepository.kt`).
-   - `app/src/main/java/com/example/foodjeetapp/data/model/`: Modelos de dominio de la aplicación (`FoodJetModels.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/api/`: Definición de contratos Retrofit (`FoodJetApiService.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/dto/`: Clases de transferencia de datos inmutables (`ProductDtos.kt`, `OrderDtos.kt`, `AuthDtos.kt`, `AddressDtos.kt`, `ReviewDtos.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/`: Interceptores de red (`AuthInterceptor.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt`: Cliente OkHttp y Retrofit.
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/repository/`: Implementaciones de repositorio como única fuente de verdad (`ProductRepository.kt`, `OrderRepository.kt`, `UserRepository.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/model/`: Modelos de dominio de la aplicación (`FoodJetModels.kt`).
 
 4. **Capa de Persistencia Local (Referencia):**
-   - `app/src/main/java/com/example/foodjeetapp/data/local/`: Base de datos Room (`FoodJetDatabase.kt`), DAO (`dao/ProductDao.kt`), entidades (`entity/ProductEntity.kt`) y almacenamiento de preferencias (`SessionDataStore.kt`).
+   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/local/`: Base de datos Room (`FoodJetDatabase.kt`), DAO (`dao/ProductDao.kt`), entidades (`entity/ProductEntity.kt`) y almacenamiento de preferencias (`SessionDataStore.kt`).
 
 ### 2. REGLA ESTRICTA: Preservación de la Estructura Gradle Base
 El agente Jules tiene **ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de infraestructura y configuración del sistema de compilación Gradle:
@@ -103,7 +103,7 @@ El agente Jules tiene **ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de infr
 - `settings.gradle.kts`
 - `gradle.properties`
 - `gradle/libs.versions.toml`
-- `app/build.gradle.kts`
+- `app-movil/app/build.gradle.kts`
 
 **Justificación técnica:** La versión del Android Gradle Plugin (AGP 8.9), la versión de Kotlin (2.1), la toolchain de JVM (Java 21) y el compilador de Compose (`libs.plugins.kotlin.compose`) están estrictamente alineados y validados para compatibilidad con la suite de pruebas móviles. Cualquier modificación no supervisada en las versiones o plugins puede romper la integración continua. Toda tarea de alineación debe resolverse mediante código fuente Kotlin y Jetpack Compose dentro de los paquetes habilitados.
 
@@ -327,7 +327,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM10-LOG-03: Implementar algoritmos de cálculo de distancias geográficas y trazado de trayectorias entre múltiples puntos. *(`data/model/Geo.kt`, con pruebas en `GeoTest`.)*
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM10-INF-01: Configurar la clave de acceso de Google Maps SDK en local.properties y enlazarla de manera segura a través de BuildConfig. *(Pendiente: necesita `buildConfigField` en `app/build.gradle.kts`, archivo protegido. Mientras tanto la key llega del backend por `GET /api/config`, igual que en la web.)*
+- [ ] REQ-SEM10-INF-01: Configurar la clave de acceso de Google Maps SDK en local.properties y enlazarla de manera segura a través de BuildConfig. *(Pendiente: necesita `buildConfigField` en `app-movil/app/build.gradle.kts`, archivo protegido. Mientras tanto la key llega del backend por `GET /api/config`, igual que en la web.)*
 - [ ] REQ-SEM10-INF-02: Consolidar la integración técnica de servicios web REST, Firebase y geolocalización para la entrega del hito evaluativo T2. *(REST y geolocalización integradas; falta Firebase, ver semana 9.)*
 
 ---
