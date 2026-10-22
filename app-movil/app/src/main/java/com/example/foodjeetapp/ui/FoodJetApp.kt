@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -125,8 +126,13 @@ fun FoodJetApp(
     }
 
     fun irA(ruta: String) {
+        if (ruta == Rutas.HOME) {
+            if (navController.popBackStack(Rutas.HOME, inclusive = false)) {
+                return
+            }
+        }
         navController.navigate(ruta) {
-            popUpTo(Rutas.HOME) { saveState = true }
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
             restoreState = true
         }
@@ -352,8 +358,21 @@ fun FoodJetApp(
                                 onError = ::avisar
                             )
                         },
-                        onBackToMenu = { irA(Rutas.HOME) },
-                        onViewHistory = { irA(Rutas.PEDIDOS) }
+                        onBack = {
+                            if (!navController.popBackStack()) {
+                                irA(Rutas.HOME)
+                            }
+                        },
+                        onBackToMenu = {
+                            if (!navController.popBackStack(Rutas.HOME, inclusive = false)) {
+                                irA(Rutas.HOME)
+                            }
+                        },
+                        onViewHistory = {
+                            if (!navController.popBackStack(Rutas.PEDIDOS, inclusive = false)) {
+                                irA(Rutas.PEDIDOS)
+                            }
+                        }
                     )
                 }
                 composable(Rutas.DASHBOARD) {

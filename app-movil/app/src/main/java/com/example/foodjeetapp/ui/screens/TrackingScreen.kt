@@ -99,6 +99,7 @@ fun TrackingScreen(
     error: String?,
     onBackToMenu: () -> Unit,
     onViewHistory: () -> Unit,
+    onBack: () -> Unit = onBackToMenu,
     onCancelOrder: (orderId: Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -126,7 +127,7 @@ fun TrackingScreen(
             TopAppBar(
                 title = { Text("Pedido #$pedidoId", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackToMenu) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
