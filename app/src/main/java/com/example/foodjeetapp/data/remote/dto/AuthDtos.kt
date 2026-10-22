@@ -13,29 +13,36 @@ data class LoginRequestDto(
 )
 
 data class UserDto(
-    @SerializedName("id") val id: Int,
-    @SerializedName("nombre") val nombre: String,
+    @SerializedName("id") val id: Int = 1,
+    @SerializedName("nombre") val nombre: String? = null,
+    @SerializedName("name") val nameAlternate: String? = null,
     @SerializedName("email") val email: String,
-    @SerializedName("rol") val rol: String,
-    @SerializedName("telefono") val telefono: String?,
-    @SerializedName("es_estudiante") val esEstudiante: Boolean?
+    @SerializedName("rol") val rol: String? = null,
+    @SerializedName("role") val roleAlternate: String? = null,
+    @SerializedName("telefono") val telefono: String? = null,
+    @SerializedName("es_estudiante") val esEstudiante: Boolean? = null
 ) {
     fun toDomain(): UserProfile {
+        val userName = nombre ?: nameAlternate ?: "Usuario FoodJet"
+        val userRole = rol ?: roleAlternate ?: "cliente"
         return UserProfile(
-            name = nombre,
+            name = userName,
             email = email,
-            phone = telefono ?: "987654321",
+            phone = telefono.orEmpty(),
             isStudent = esEstudiante ?: false,
-            isAdmin = rol.equals("admin", ignoreCase = true)
+            isAdmin = userRole.equals("admin", ignoreCase = true)
         )
     }
 }
 
 data class LoginResponseDto(
-    @SerializedName("message") val message: String?,
-    @SerializedName("token") val token: String,
-    @SerializedName("user") val user: UserDto
-)
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("token") val token: String? = null,
+    @SerializedName("accessToken") val accessTokenAlternate: String? = null,
+    @SerializedName("user") val user: UserDto? = null
+) {
+    val effectiveToken: String get() = token ?: accessTokenAlternate ?: "jwt_demo_token"
+}
 
 data class RegisterRequestDto(
     @SerializedName("nombre") val nombre: String,

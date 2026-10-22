@@ -89,14 +89,15 @@ data class OrderResponseDto(
     @SerializedName("plan_tiempos") val planTiempos: Map<String, Any>? = null,
     @SerializedName("historial") val historial: List<OrderStatusHistoryDto>? = null,
     @SerializedName("seguimiento") val seguimiento: TrackingProgressDto? = null,
-    @SerializedName("servidor_ahora") val servidorAhora: String? = null
+    @SerializedName("servidor_ahora") val servidorAhora: String? = null,
+    @SerializedName("envio_iniciado_en") val envioIniciadoEn: String? = null
 ) {
-    fun toDomain(): OrderRecord {
-        val domainStatus = when (estado.lowercase().trim()) {
+    fun toDomain(recibidoEnMs: Long = System.currentTimeMillis()): OrderRecord {
+        val domainStatus = when (Seguimiento.normalizarEstado(estado)) {
             "pendiente" -> OrderStatus.PENDIENTE
             "confirmado" -> OrderStatus.CONFIRMADO
-            "en preparación", "en_preparacion", "preparando" -> OrderStatus.EN_PREPARACION
-            "en camino", "en_camino" -> OrderStatus.EN_CAMINO
+            "en_preparacion", "preparando" -> OrderStatus.EN_PREPARACION
+            "en_camino" -> OrderStatus.EN_CAMINO
             "entregado" -> OrderStatus.ENTREGADO
             "cancelado" -> OrderStatus.CANCELADO
             else -> OrderStatus.PENDIENTE
@@ -171,7 +172,14 @@ data class OrderResponseDto(
             restanteMetros = seguimiento?.restanteMetros,
             llegadaEstimada = seguimiento?.llegadaEstimada,
             historialEstados = historyEntries,
-            rutaPuntos = routePoints
+            rutaPuntos = routePoints,
+            restauranteId = restauranteId,
+            fechaIso = fecha,
+            planTiempos = planTiempos.orEmpty().mapNotNull { (estado, segundos) ->
+                (segundos as? Number)?.toDouble()?.let { Seguimiento.normalizarEstado(estado) to it }
+            }.toMap(),
+            envioIniciadoEn = envioIniciadoEn,
+            desfaseRelojMs = Seguimiento.parseIso(servidorAhora)?.let { it - recibidoEnMs } ?: 0L
         )
     }
 }

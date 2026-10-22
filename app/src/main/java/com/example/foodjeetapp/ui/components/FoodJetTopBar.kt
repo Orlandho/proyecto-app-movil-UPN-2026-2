@@ -30,9 +30,12 @@ fun FoodJetTopBar(
     onLogoClick: () -> Unit,
     onCartClick: () -> Unit,
     onFavoritesClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     TopAppBar(
+        modifier = modifier,
+        windowInsets = TopAppBarDefaults.windowInsets,
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -61,19 +64,19 @@ fun FoodJetTopBar(
         },
         actions = {
             // Botón de Favoritos con Badge
-            BadgedBox(
-                badge = {
-                    if (favoritesCount > 0) {
-                        Badge(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
-                        ) {
-                            Text(favoritesCount.toString())
+            IconButton(onClick = onFavoritesClick) {
+                BadgedBox(
+                    badge = {
+                        if (favoritesCount > 0) {
+                            Badge(
+                                containerColor = Color.Red,
+                                contentColor = Color.White
+                            ) {
+                                Text(favoritesCount.toString())
+                            }
                         }
                     }
-                }
-            ) {
-                IconButton(onClick = onFavoritesClick) {
+                ) {
                     Icon(
                         imageVector = Icons.Default.Favorite,
                         contentDescription = "Ver favoritos",
@@ -83,19 +86,19 @@ fun FoodJetTopBar(
             }
 
             // Botón de Carrito con Badge
-            BadgedBox(
-                badge = {
-                    if (cartCount > 0) {
-                        Badge(
-                            containerColor = FoodJetPrimaryDark,
-                            contentColor = Color.White
-                        ) {
-                            Text(cartCount.toString())
+            IconButton(onClick = onCartClick) {
+                BadgedBox(
+                    badge = {
+                        if (cartCount > 0) {
+                            Badge(
+                                containerColor = FoodJetPrimaryDark,
+                                contentColor = Color.White
+                            ) {
+                                Text(cartCount.toString())
+                            }
                         }
                     }
-                }
-            ) {
-                IconButton(onClick = onCartClick) {
+                ) {
                     Icon(
                         imageVector = Icons.Default.ShoppingCart,
                         contentDescription = "Ver carrito de compras",

@@ -8,7 +8,7 @@ La aplicación móvil está diseñada para operar de forma complementaria y coor
 
 ### 1. Consumo del Backend de FoodJet
 La aplicación móvil Kotlin debe consumir la API REST del backend de FoodJet (Node.js con Express, Prisma ORM y base de datos relacional PostgreSQL):
-- **Base URL:** Configurada en [`RetrofitClient`](app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt) (`http://10.0.2.2:3000/api/` para emulador Android de desarrollo, `http://localhost:3000/api/` mediante adb reverse proxy en dispositivo físico, o la URL de producción/túnel Cloudflare `https://foodjet.asen.pe/api/`).
+- **Base URL:** Se elige en la app (Mi cuenta o Iniciar sesión → Servidor) y se guarda con DataStore; las opciones están en [`ServidorFoodJet`](app/src/main/java/com/example/foodjeetapp/data/remote/ServidorFoodJet.kt) y [`RetrofitClient`](app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt) la aplica a cada petición: producción por el túnel de Cloudflare `https://foodjet.asen.pe/api/` (predeterminada), el Docker local desde el emulador `http://10.0.2.2:8081/api/`, o desde un celular por USB `http://localhost:8081/api/` con `adb reverse tcp:8081 tcp:8081`. Siempre se usa el proxy Caddy (8081) y no la API directa del 3000, porque el proxy sirve también los estáticos de la web, como los QR de pago. Guía en [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md).
 - **Autenticación y Seguridad:** El backend gestiona sesiones mediante tokens JWT. La app móvil almacena el token en [`SessionDataStore`](app/src/main/java/com/example/foodjeetapp/data/local/SessionDataStore.kt) y lo adjunta automáticamente en cada petición mediante [`AuthInterceptor`](app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/AuthInterceptor.kt) (`Authorization: Bearer <token>`).
 - **Servicios de Red y Endpoints:** Definidos en la interfaz suspendida [`FoodJetApiService`](app/src/main/java/com/example/foodjeetapp/data/remote/api/FoodJetApiService.kt):
   - Autenticación: `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me`.
@@ -179,7 +179,7 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM01-VIS-01: Diseñar los primeros esquemas de interfaz para pantallas móviles considerando principios de usabilidad y diseño limpio.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM01-LOG-01: Establecer las directrices técnicas de optimización en el uso de CPU y memoria desde la concepción del software para garantizar un consumo responsable de recursos según el Objetivo de Desarrollo Sostenible 12.
+- [x] REQ-SEM01-LOG-01: Establecer las directrices técnicas de optimización en el uso de CPU y memoria desde la concepción del software para garantizar un consumo responsable de recursos según el Objetivo de Desarrollo Sostenible 12. *(Directrices en [`docs/RENDIMIENTO_Y_ENERGIA.md`](docs/RENDIMIENTO_Y_ENERGIA.md).)*
 
 ### Persistencia, Infraestructura y Configuración
 - [x] REQ-SEM01-INF-01: Configurar el proyecto inicial en Android Studio con soporte para Kotlin moderno y compatibilidad con dispositivos móviles Android.
@@ -223,13 +223,13 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM04-VIS-02: Aplicar directrices técnicas de accesibilidad móvil asegurando descripciones de contenido para lectores de pantalla y áreas táctiles mínimas reglamentarias.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM04-LOG-01: Administrar adecuadamente los eventos del ciclo de vida de componentes y actividades de Android para prevenir fugas de memoria.
-- [ ] REQ-SEM04-LOG-02: Implementar Intents explícitos para navegación interna e Intents implícitos para interactuar con aplicaciones del sistema como cámara o navegador web.
+- [x] REQ-SEM04-LOG-01: Administrar adecuadamente los eventos del ciclo de vida de componentes y actividades de Android para prevenir fugas de memoria. *(Sondeo del seguimiento ligado a ON_START/ON_STOP, WebView pausado y destruido con la pantalla, ServiceLocator solo con el contexto de aplicación.)*
+- [x] REQ-SEM04-LOG-02: Implementar Intents explícitos para navegación interna e Intents implícitos para interactuar con aplicaciones del sistema como cámara o navegador web. *(Explícito: acceso directo "Seguir pedido" hacia `MainActivity`. Implícitos: navegador, Google Maps, compartir y Ajustes. Ver `ui/IntentsFoodJet.kt`.)*
 - [x] REQ-SEM04-LOG-03: Implementar validación lógica reactiva evaluando campos obligatorios, estructuras de correo electrónico, números y límites de caracteres.
 
 ### Persistencia, Infraestructura y Configuración
 - [x] REQ-SEM04-INF-01: Declarar permisos básicos en el archivo AndroidManifest.xml y gestionar solicitudes dinámicas de permisos en tiempo de ejecución.
-- [ ] REQ-SEM04-INF-02: Implementar medidas de eficiencia energética reduciendo la ejecución de tareas redundantes en segundo plano.
+- [x] REQ-SEM04-INF-02: Implementar medidas de eficiencia energética reduciendo la ejecución de tareas redundantes en segundo plano. *(Sondeo adaptativo que se detiene en segundo plano y al terminar el pedido, con espera creciente tras fallos; una sola lectura de ubicación.)*
 
 ---
 
@@ -305,12 +305,12 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 - [x] REQ-SEM09-VIS-02: Diseñar selectores visuales de archivos e imágenes con barras de progreso de carga y descarga en la interfaz.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM09-LOG-01: Implementar Firebase Authentication para registro de cuentas, validación segura de accesos y persistencia de tokens de sesión.
+- [ ] REQ-SEM09-LOG-01: Implementar Firebase Authentication para registro de cuentas, validación segura de accesos y persistencia de tokens de sesión. *(Pendiente: requiere un proyecto Firebase y `google-services.json` del equipo, y añadir el plugin en Gradle, que está protegido. Hoy la autenticación real es el JWT del backend.)*
 - [ ] REQ-SEM09-LOG-02: Implementar Cloud Firestore para base de datos documental en tiempo real con sincronización bidireccional de colecciones y documentos.
 - [ ] REQ-SEM09-LOG-03: Implementar Firebase Storage para la carga, resguardo y descarga segura de archivos binarios e imágenes del proyecto.
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM09-INF-01: Configurar el archivo google-services.json y los complementos de compilación de Firebase en el proyecto.
+- [ ] REQ-SEM09-INF-01: Configurar el archivo google-services.json y los complementos de compilación de Firebase en el proyecto. *(Pendiente: igual que REQ-SEM09-LOG-01.)*
 - [ ] REQ-SEM09-INF-02: Definir reglas de seguridad en Firebase para autenticación previa y restricción de lectura y escritura por identificador de usuario.
 
 ---
@@ -318,17 +318,17 @@ La inteligencia artificial actuará como desarrollador móvil senior encargado d
 ## Semana 10: Geolocalización y Mapas con Evaluación T2
 
 ### Capa Visual y Experiencia de Usuario
-- [ ] REQ-SEM10-VIS-01: Renderizar mapas interactivos de Google Maps con marcadores personalizados, áreas circulares y ventanas de información en Compose.
-- [ ] REQ-SEM10-VIS-02: Diseñar controles táctiles sobre el mapa para centrado de cámara, acercamiento y visualización de rutas sobre el terreno.
+- [x] REQ-SEM10-VIS-01: Renderizar mapas interactivos de Google Maps con marcadores personalizados, áreas circulares y ventanas de información en Compose. *(Google Maps JavaScript dentro de Compose con `AndroidView`, con la key de `/api/config`; ver `ui/components/MapaFoodJet.kt`.)*
+- [x] REQ-SEM10-VIS-02: Diseñar controles táctiles sobre el mapa para centrado de cámara, acercamiento y visualización de rutas sobre el terreno.
 
 ### Lógica de Negocio y Servicios de Arquitectura
-- [ ] REQ-SEM10-LOG-01: Implementar el cliente FusedLocationProviderClient para obtener coordenadas de latitud y longitud del dispositivo en tiempo real con precisión equilibrada.
-- [ ] REQ-SEM10-LOG-02: Solicitar y validar dinámicamente en tiempo de ejecución los permisos ACCESS_FINE_LOCATION y ACCESS_COARSE_LOCATION con explicaciones contextuales.
-- [ ] REQ-SEM10-LOG-03: Implementar algoritmos de cálculo de distancias geográficas y trazado de trayectorias entre múltiples puntos.
+- [ ] REQ-SEM10-LOG-01: Implementar el cliente FusedLocationProviderClient para obtener coordenadas de latitud y longitud del dispositivo en tiempo real con precisión equilibrada. *(Parcial: la ubicación se obtiene con `LocationManagerCompat` y precisión equilibrada en `data/location/LocationProvider.kt`. Fused necesita la dependencia `play-services-location`, que hay que añadir en Gradle, archivo protegido.)*
+- [x] REQ-SEM10-LOG-02: Solicitar y validar dinámicamente en tiempo de ejecución los permisos ACCESS_FINE_LOCATION y ACCESS_COARSE_LOCATION con explicaciones contextuales.
+- [x] REQ-SEM10-LOG-03: Implementar algoritmos de cálculo de distancias geográficas y trazado de trayectorias entre múltiples puntos. *(`data/model/Geo.kt`, con pruebas en `GeoTest`.)*
 
 ### Persistencia, Infraestructura y Configuración
-- [ ] REQ-SEM10-INF-01: Configurar la clave de acceso de Google Maps SDK en local.properties y enlazarla de manera segura a través de BuildConfig.
-- [ ] REQ-SEM10-INF-02: Consolidar la integración técnica de servicios web REST, Firebase y geolocalización para la entrega del hito evaluativo T2.
+- [ ] REQ-SEM10-INF-01: Configurar la clave de acceso de Google Maps SDK en local.properties y enlazarla de manera segura a través de BuildConfig. *(Pendiente: necesita `buildConfigField` en `app/build.gradle.kts`, archivo protegido. Mientras tanto la key llega del backend por `GET /api/config`, igual que en la web.)*
+- [ ] REQ-SEM10-INF-02: Consolidar la integración técnica de servicios web REST, Firebase y geolocalización para la entrega del hito evaluativo T2. *(REST y geolocalización integradas; falta Firebase, ver semana 9.)*
 
 ---
 

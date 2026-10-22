@@ -22,8 +22,17 @@ data class RestaurantDto(
 )
 
 data class ConfigResponseDto(
-    @SerializedName("googleMapsApiKey") val googleMapsApiKey: String? = null
-)
+    @SerializedName("googleMapsApiKey") val googleMapsApiKey: String? = null,
+    /** Cascada de keys en orden de prioridad (principal, secundaria). */
+    @SerializedName("googleMapsApiKeys") val googleMapsApiKeys: List<String>? = null
+) {
+    /** Keys a probar, en orden y sin repetidas. Vacía = el servidor no tiene mapa configurado. */
+    fun keysDeMapa(): List<String> =
+        (googleMapsApiKeys.orEmpty() + listOfNotNull(googleMapsApiKey))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+}
 
 data class ProductDto(
     @SerializedName("id") val id: Int,

@@ -4,8 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.di.ServiceLocator
+import com.example.foodjeetapp.data.model.DeliverySelection
 import com.example.foodjeetapp.data.model.OrderRecord
+import com.example.foodjeetapp.data.model.OrderStatus
+import com.example.foodjeetapp.data.model.SavedAddress
 import com.example.foodjeetapp.data.remote.dto.AdminOrderDto
+import com.example.foodjeetapp.data.remote.dto.RestaurantDto
 import com.example.foodjeetapp.data.repository.OrderRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,6 +27,27 @@ class OrderViewModel(
     private val orderRepository: OrderRepository = ServiceLocator.orderRepository
 ) : ViewModel() {
 
+    companion object {
+        /** Consulta del seguimiento mientras el repartidor está en camino. */
+        const val INTERVALO_EN_CAMINO_MS = 3_000L
+        /** En los demás estados el pedido cambia cada varios minutos. */
+        const val INTERVALO_EN_ESPERA_MS = 8_000L
+        /** Tope de la espera tras fallos seguidos (sin red, servidor caído). */
+        const val INTERVALO_MAXIMO_MS = 30_000L
+
+        /**
+         * Cada cuánto consultar el seguimiento (REQ-SEM04-INF-02). Un pedido
+         * terminado no se consulta más; tras errores la espera se duplica,
+         * para no gastar batería y datos contra un servidor que no responde.
+         */
+        fun intervaloDeSondeo(estado: OrderStatus?, fallosSeguidos: Int): Long? {
+            if (estado?.isTerminal == true) return null
+            val base = if (estado == OrderStatus.EN_CAMINO) INTERVALO_EN_CAMINO_MS else INTERVALO_EN_ESPERA_MS
+            if (fallosSeguidos <= 0) return base
+            return (base shl fallosSeguidos.coerceAtMost(4)).coerceAtMost(INTERVALO_MAXIMO_MS)
+        }
+    }
+
     private val _ordersState = MutableStateFlow<UiState<List<OrderRecord>>>(UiState.Loading)
     val ordersState: StateFlow<UiState<List<OrderRecord>>> = _ordersState.asStateFlow()
 
@@ -30,11 +55,24 @@ class OrderViewModel(
     private val _currentTrackingOrder = MutableStateFlow<OrderRecord?>(null)
     val currentTrackingOrder: StateFlow<OrderRecord?> = _currentTrackingOrder.asStateFlow()
 
+    private val _trackingError = MutableStateFlow<String?>(null)
+    val trackingError: StateFlow<String?> = _trackingError.asStateFlow()
+
     // Estado para el panel de administración
     private val _adminOrdersState = MutableStateFlow<UiState<List<AdminOrderDto>>>(UiState.Loading)
     val adminOrdersState: StateFlow<UiState<List<AdminOrderDto>>> = _adminOrdersState.asStateFlow()
 
+    // Direcciones guardadas del cliente para el checkout
+    private val _addressesState = MutableStateFlow<UiState<List<SavedAddress>>>(UiState.Loading)
+    val addressesState: StateFlow<UiState<List<SavedAddress>>> = _addressesState.asStateFlow()
+
+    private val _isSubmitting = MutableStateFlow(false)
+    val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
+
+    private val restaurantes = mutableMapOf<Int, RestaurantDto>()
+
     private var trackingJob: Job? = null
+    private var trackedOrderId: Int? = null
 
     init {
         loadOrders()
@@ -59,51 +97,87 @@ class OrderViewModel(
         }
     }
 
-    fun startTrackingOrder(orderId: Int) {
-        trackingJob?.cancel()
+    fun loadAddresses() {
+        viewModelScope.launch {
+            _addressesState.value = UiState.Loading
+            orderRepository.getAddresses()
+                .onSuccess { list -> _addressesState.value = if (list.isEmpty()) UiState.Empty else UiState.Success(list) }
+                .onFailure { error -> _addressesState.value = UiState.Error(error.message ?: "No se pudieron cargar tus direcciones", error) }
+        }
+    }
+
+    /** Local de un pedido (para el QR de pago), con caché en memoria. */
+    suspend fun restaurante(id: Int): Result<RestaurantDto> {
+        restaurantes[id]?.let { return Result.success(it) }
+        return orderRepository.getRestaurant(id).onSuccess { restaurantes[id] = it }
+    }
+
+    /**
+     * Elige qué pedido se sigue. No empieza a consultar: eso lo hace
+     * [reanudarSeguimiento] cuando la pantalla de seguimiento está visible.
+     */
+    fun seguirPedido(orderId: Int) {
+        if (trackedOrderId != orderId) {
+            pausarSeguimiento()
+            trackedOrderId = orderId
+            _trackingError.value = null
+            if (_currentTrackingOrder.value?.numericId != orderId) _currentTrackingOrder.value = null
+        }
+    }
+
+    /** Arranca el sondeo; se llama al volver a primer plano (ON_START). */
+    fun reanudarSeguimiento() {
+        val orderId = trackedOrderId ?: return
+        if (trackingJob?.isActive == true) return
         trackingJob = viewModelScope.launch {
+            var fallos = 0
             while (isActive) {
-                val result = orderRepository.getOrderById(orderId)
-                result.onSuccess { order ->
-                    _currentTrackingOrder.value = order
-                    // Si el pedido llegó a un estado terminal (entregado o cancelado), finalizamos el sondeo
-                    if (order.estado.isTerminal) {
-                        return@launch
+                orderRepository.getOrderById(orderId)
+                    .onSuccess { order ->
+                        fallos = 0
+                        _trackingError.value = null
+                        _currentTrackingOrder.value = order
                     }
-                }
-                delay(3000)
+                    .onFailure { error ->
+                        fallos++
+                        _trackingError.value = error.message
+                    }
+                val espera = intervaloDeSondeo(_currentTrackingOrder.value?.estado, fallos) ?: break
+                delay(espera)
             }
         }
     }
 
-    fun stopTracking() {
+    /** Detiene el sondeo; se llama al pasar a segundo plano (ON_STOP) o al salir. */
+    fun pausarSeguimiento() {
         trackingJob?.cancel()
         trackingJob = null
     }
 
     fun setTrackingOrder(order: OrderRecord) {
+        if (order.numericId > 0) seguirPedido(order.numericId)
         _currentTrackingOrder.value = order
-        if (order.numericId > 0) {
-            startTrackingOrder(order.numericId)
-        }
     }
 
     fun createOrder(
         order: OrderRecord,
-        restauranteId: Int = 1,
+        entrega: DeliverySelection,
+        restauranteId: Int,
         metodoPago: String = "cash",
         cuponId: Int? = null,
         onSuccess: (OrderRecord) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
+        if (_isSubmitting.value) return
         viewModelScope.launch {
-            val result = orderRepository.createOrder(order, restauranteId, metodoPago, cuponId)
+            _isSubmitting.value = true
+            val result = orderRepository.createOrder(order, entrega, restauranteId, metodoPago, cuponId)
+            _isSubmitting.value = false
             result.onSuccess { freshOrder ->
+                seguirPedido(freshOrder.numericId)
                 _currentTrackingOrder.value = freshOrder
-                if (freshOrder.numericId > 0) {
-                    startTrackingOrder(freshOrder.numericId)
-                }
                 loadOrders()
+                loadAddresses()
                 onSuccess(freshOrder)
             }.onFailure { error ->
                 onError(error.message ?: "Error al crear el pedido en el servidor")
@@ -119,15 +193,9 @@ class OrderViewModel(
         viewModelScope.launch {
             val result = orderRepository.cancelOrder(orderId)
             result.onSuccess {
-                stopTracking()
-                // Actualizar inmediatamente el estado en memoria
-                _currentTrackingOrder.value?.let { current ->
-                    if (current.numericId == orderId) {
-                        _currentTrackingOrder.value = current.copy(
-                            estado = com.example.foodjeetapp.data.model.OrderStatus.CANCELADO
-                        )
-                    }
-                }
+                pausarSeguimiento()
+                // El estado y su hora los da el servidor, no se suponen aquí.
+                orderRepository.getOrderById(orderId).onSuccess { _currentTrackingOrder.value = it }
                 loadOrders()
                 onSuccess()
             }.onFailure { error ->
@@ -168,6 +236,9 @@ class OrderViewModel(
                 loadOrders()
                 onSuccess()
             }.onFailure { error ->
+                // Lo normal es un 409: el simulador o alguien más ya movió el
+                // pedido. Se recarga para que el panel muestre el estado real.
+                loadAdminOrders()
                 onError(error.message ?: "Error al avanzar estado del pedido")
             }
         }
@@ -191,8 +262,19 @@ class OrderViewModel(
         }
     }
 
+    /** Al cerrar sesión o cambiar de servidor: nada del usuario anterior queda en pantalla. */
+    fun limpiar() {
+        pausarSeguimiento()
+        trackedOrderId = null
+        _currentTrackingOrder.value = null
+        _addressesState.value = UiState.Loading
+        _adminOrdersState.value = UiState.Loading
+        restaurantes.clear()
+        loadOrders()
+    }
+
     override fun onCleared() {
         super.onCleared()
-        stopTracking()
+        pausarSeguimiento()
     }
 }

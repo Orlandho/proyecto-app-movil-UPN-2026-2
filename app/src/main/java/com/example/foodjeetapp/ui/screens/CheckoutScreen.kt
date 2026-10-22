@@ -1,10 +1,17 @@
 package com.example.foodjeetapp.ui.screens
 
+import android.Manifest
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,38 +21,201 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import com.example.foodjeetapp.data.common.UiState
+import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.data.model.CartItem
+import com.example.foodjeetapp.data.model.DeliverySelection
+import com.example.foodjeetapp.data.model.Geo
+import com.example.foodjeetapp.data.model.GeoPoint
+import com.example.foodjeetapp.data.model.SavedAddress
+import com.example.foodjeetapp.data.remote.dto.RestaurantDto
+import com.example.foodjeetapp.ui.IntentsFoodJet
+import com.example.foodjeetapp.ui.components.ControladorMapa
+import com.example.foodjeetapp.ui.components.DatosMapa
+import com.example.foodjeetapp.ui.components.MapaFoodJet
+import com.example.foodjeetapp.ui.components.ModoMapa
+import com.example.foodjeetapp.ui.components.PuntoMapa
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/**
+ * Cupones que existen en la base del backend (`backend/prisma/seed.js`). El
+ * backend no tiene un endpoint para buscar un cupón por su código, solo
+ * acepta `cupon_id` al crear el pedido, así que el código se traduce aquí; el
+ * descuento lo vuelve a calcular y validar el servidor.
+ */
+private val CUPONES_BACKEND = mapOf(
+    "pruebacupon" to Triple(1, 0.10, "PruebaCupon"),
+    "foodjet20" to Triple(2, 0.20, "FOODJET20")
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckoutScreen(
     cartItems: List<CartItem>,
     isStudent: Boolean,
+    isLoggedIn: Boolean,
     initialName: String,
     initialPhone: String,
+    addressesState: UiState<List<SavedAddress>>,
+    isSubmitting: Boolean,
+    onRequireLogin: () -> Unit,
+    onRetryAddresses: () -> Unit,
     onBackToMenu: () -> Unit,
-    onConfirmOrder: (paymentMethod: String, total: Double, cuponId: Int?) -> Unit,
-    onConfirmOrderWithDetails: (paymentMethod: String, total: Double, cuponId: Int?, address: String, lat: Double, lon: Double) -> Unit = { m, t, c, _, _, _ -> onConfirmOrder(m, t, c) },
+    onConfirmar: (paymentMethod: String, cuponId: Int?, entrega: DeliverySelection) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var name by remember { mutableStateOf(initialName) }
-    var phone by remember { mutableStateOf(initialPhone) }
-    var address by remember { mutableStateOf("Av. Principal 123, Miraflores, Lima") }
-    var reference by remember { mutableStateOf("Frente al parque central, departamento 402") }
-    var deliveryLat by remember { mutableStateOf(-12.1218) }
-    var deliveryLon by remember { mutableStateOf(-77.0298) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val locationProvider = remember { ServiceLocator.locationProvider }
+    val controladorMapa = remember { ControladorMapa() }
 
-    // Validación reactiva (REQ-SEM04-VIS-01)
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var phone by remember(initialPhone) { mutableStateOf(initialPhone) }
+    var address by remember { mutableStateOf("") }
+    var reference by remember { mutableStateOf("") }
+    var punto by remember { mutableStateOf<GeoPoint?>(null) }
+    var precisionGps by remember { mutableStateOf<Double?>(null) }
+    var direccionGuardada by remember { mutableStateOf<SavedAddress?>(null) }
+    var mapaDisponible by remember { mutableStateOf<Boolean?>(null) }
+    var textoEditadoAMano by remember { mutableStateOf(false) }
+    var avisoUbicacion by remember { mutableStateOf<String?>(null) }
+    var buscandoUbicacion by remember { mutableStateOf(false) }
+    var mostrarExplicacionPermiso by remember { mutableStateOf(false) }
+    var local by remember { mutableStateOf<RestaurantDto?>(null) }
+    var primerReposo by remember { mutableStateOf(true) }
+
+    // Local del carrito, para mostrarlo en el mapa y medir la distancia.
+    val restauranteId = cartItems.firstOrNull()?.product?.restauranteId
+    LaunchedEffect(restauranteId) {
+        local = restauranteId?.let { ServiceLocator.orderRepository.getRestaurant(it).getOrNull() }
+    }
+    val puntoLocal = local?.let { l ->
+        if (Geo.coordenadasValidas(l.latitud, l.longitud)) GeoPoint(l.latitud!!, l.longitud!!) else null
+    }
+
+    // Al cargar las direcciones se abre con la predeterminada que esté ubicada.
+    val guardadas = (addressesState as? UiState.Success<List<SavedAddress>>)?.data.orEmpty()
+    LaunchedEffect(guardadas) {
+        if (address.isBlank() && punto == null) {
+            val inicial = guardadas.filter { it.punto != null }.let { u -> u.firstOrNull { it.predeterminada } ?: u.firstOrNull() }
+            inicial?.let {
+                direccionGuardada = it
+                address = it.direccion
+                reference = it.referencia.orEmpty()
+                punto = it.punto
+                it.punto?.let(controladorMapa::irA)
+            }
+        }
+    }
+
+    // Si el punto llegó antes de que cargara Google Maps, se lleva el mapa a él.
+    LaunchedEffect(mapaDisponible) {
+        if (mapaDisponible == true) punto?.let(controladorMapa::irA)
+    }
+
+    // Al soltar el mapa se rellena la dirección con el geocodificador, salvo
+    // que el cliente la haya escrito a mano (REQ-SEM10-LOG-01).
+    LaunchedEffect(punto) {
+        val actual = punto ?: return@LaunchedEffect
+        val guardada = direccionGuardada
+        if (guardada?.punto != null && Geo.distanciaMetros(guardada.punto!!, actual) > Geo.MISMA_UBICACION_M) {
+            direccionGuardada = null
+        }
+        if (textoEditadoAMano || direccionGuardada != null) return@LaunchedEffect
+        delay(600)
+        locationProvider.direccionDe(actual)?.let { address = it }
+    }
+
+    fun leerGps() {
+        if (!locationProvider.ubicacionActivada()) {
+            avisoUbicacion = "La ubicación del teléfono está apagada."
+            return
+        }
+        scope.launch {
+            buscandoUbicacion = true
+            avisoUbicacion = null
+            val lectura = locationProvider.ubicacionActual()
+            buscandoUbicacion = false
+            if (lectura == null) {
+                avisoUbicacion = "No se pudo leer tu ubicación. Marca el punto en el mapa."
+                return@launch
+            }
+            if (!Geo.dentroDeLima(lectura.punto)) {
+                avisoUbicacion = "Tu ubicación está fuera de Lima, donde reparte FoodJet. Revisa el punto antes de confirmar."
+            }
+            direccionGuardada = null
+            textoEditadoAMano = false
+            precisionGps = lectura.precisionMetros
+            punto = lectura.punto
+            controladorMapa.irA(lectura.punto)
+        }
+    }
+
+    // Permiso en tiempo de ejecución (REQ-SEM10-LOG-02): basta con el
+    // aproximado; si el cliente da el preciso, mejor.
+    val pedirPermiso = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { resultado ->
+        if (resultado.values.any { it }) {
+            leerGps()
+        } else {
+            val activity = context as? Activity
+            val bloqueado = activity != null &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+            avisoUbicacion = if (bloqueado) {
+                "El permiso de ubicación está bloqueado. Puedes activarlo en Ajustes o marcar el punto en el mapa."
+            } else {
+                "Sin permiso de ubicación: marca el punto en el mapa o escribe tu dirección."
+            }
+        }
+    }
+
+    fun usarMiUbicacion() {
+        when {
+            locationProvider.tienePermiso() -> leerGps()
+            (context as? Activity)?.let {
+                ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_COARSE_LOCATION)
+            } == true -> mostrarExplicacionPermiso = true
+            else -> pedirPermiso.launch(
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+            )
+        }
+    }
+
+    fun buscarEscrita() {
+        val texto = address.trim()
+        if (texto.length < 5) return
+        scope.launch {
+            val encontrado = locationProvider.buscarDireccion(texto)
+            if (encontrado == null) {
+                avisoUbicacion = "No encontramos esa dirección. Mueve el mapa hasta tu puerta."
+            } else {
+                avisoUbicacion = null
+                textoEditadoAMano = true
+                direccionGuardada = null
+                precisionGps = null
+                punto = encontrado
+                controladorMapa.irA(encontrado)
+            }
+        }
+    }
+
+    // Validación reactiva (REQ-SEM04-VIS-01 y REQ-SEM04-LOG-03)
     val isNameValid = name.trim().length >= 3
     val isPhoneValid = phone.trim().matches(Regex("^\\d{9}$"))
     val isAddressValid = address.trim().length >= 5
-    val isFormValid = isNameValid && isPhoneValid && isAddressValid && cartItems.isNotEmpty()
+    // Con mapa, el punto es obligatorio: es el destino del repartidor.
+    val faltaPunto = mapaDisponible == true && punto == null
+    val isFormValid = isLoggedIn && isNameValid && isPhoneValid && isAddressValid && !faltaPunto &&
+        cartItems.isNotEmpty() && !isSubmitting
 
     // Selección de Método de Pago: canónicos 'cash', 'card', 'wallet'
     var paymentMethod by remember { mutableStateOf("cash") } // cash, card, wallet
@@ -53,19 +223,43 @@ fun CheckoutScreen(
     var cardExpiry by remember { mutableStateOf("") }
     var cardCvc by remember { mutableStateOf("") }
 
-    // Cupones homologados con la base de datos FoodJet (id 1: PruebaCupon, id 2: FOODJET20)
-    var couponCode by remember { mutableStateOf("PruebaCupon") }
+    var couponCode by remember { mutableStateOf("") }
     var couponAppliedId by remember { mutableStateOf<Int?>(null) }
     var couponDiscountPercent by remember { mutableStateOf(0.0) }
     var couponMessage by remember { mutableStateOf<String?>(null) }
 
-    // Cálculos económicos
+    // Vista previa; el importe definitivo lo calcula el backend al registrar el pedido.
     val subtotal = cartItems.sumOf { it.product.getEffectivePrice(isStudent) * it.quantity }
     val discount = if (couponAppliedId != null) subtotal * couponDiscountPercent else 0.0
     val subtotalAfterDiscount = (subtotal - discount).coerceAtLeast(0.0)
     val taxes = subtotalAfterDiscount * 0.18
     val deliveryFee = 5.00
     val total = subtotalAfterDiscount + taxes + deliveryFee
+
+    if (mostrarExplicacionPermiso) {
+        AlertDialog(
+            onDismissRequest = { mostrarExplicacionPermiso = false },
+            icon = { Icon(Icons.Default.MyLocation, contentDescription = null) },
+            title = { Text("¿Usar tu ubicación?") },
+            text = {
+                Text(
+                    "FoodJet usa tu ubicación una sola vez, para poner el pin del mapa en tu puerta. " +
+                        "No la seguimos en segundo plano. También puedes mover el mapa a mano."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostrarExplicacionPermiso = false
+                    pedirPermiso.launch(
+                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+                    )
+                }) { Text("Continuar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarExplicacionPermiso = false }) { Text("Ahora no") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -86,6 +280,21 @@ fun CheckoutScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (!isLoggedIn) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Inicia sesión para registrar el pedido en tu cuenta.",
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            TextButton(onClick = onRequireLogin) { Text("Iniciar sesión") }
+                        }
+                    }
+                }
+            }
+
             // 1. Información de Entrega
             item {
                 Card(
@@ -101,148 +310,184 @@ fun CheckoutScreen(
                         }
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Nombre completo
                         OutlinedTextField(
                             value = name,
-                            onValueChange = { name = it },
+                            onValueChange = { name = it.take(60) },
                             label = { Text("Nombre completo") },
                             modifier = Modifier.fillMaxWidth(),
                             isError = !isNameValid && name.isNotEmpty(),
                             supportingText = {
-                                if (!isNameValid && name.isNotEmpty()) {
-                                    Text("Debe contener al menos 3 caracteres")
-                                }
+                                if (!isNameValid && name.isNotEmpty()) Text("Debe contener al menos 3 caracteres")
                             },
                             singleLine = true
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Teléfono
                         OutlinedTextField(
                             value = phone,
-                            onValueChange = { phone = it.take(9) },
+                            onValueChange = { nuevo -> phone = nuevo.filter(Char::isDigit).take(9) },
                             label = { Text("Teléfono de contacto (9 dígitos)") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             isError = !isPhoneValid && phone.isNotEmpty(),
                             supportingText = {
-                                if (!isPhoneValid && phone.isNotEmpty()) {
-                                    Text("Debe tener exactamente 9 dígitos numéricos")
-                                }
+                                if (!isPhoneValid && phone.isNotEmpty()) Text("Debe tener exactamente 9 dígitos numéricos")
                             },
                             singleLine = true
                         )
 
+                        // Direcciones guardadas en el backend
+                        when (addressesState) {
+                            is UiState.Success -> if (guardadas.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Tus direcciones", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    guardadas.forEach { guardada ->
+                                        FilterChip(
+                                            selected = direccionGuardada?.id == guardada.id,
+                                            onClick = {
+                                                direccionGuardada = guardada
+                                                address = guardada.direccion
+                                                reference = guardada.referencia.orEmpty()
+                                                precisionGps = null
+                                                punto = guardada.punto
+                                                guardada.punto?.let(controladorMapa::irA)
+                                            },
+                                            label = { Text(guardada.direccion, maxLines = 1, fontSize = 12.sp) },
+                                            leadingIcon = if (guardada.predeterminada) {
+                                                { Icon(Icons.Default.Home, contentDescription = "Predeterminada", modifier = Modifier.size(16.dp)) }
+                                            } else null
+                                        )
+                                    }
+                                }
+                            }
+                            is UiState.Error -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    addressesState.message,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = onRetryAddresses) { Text("Reintentar") }
+                            }
+                            else -> Unit
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Dirección
                         OutlinedTextField(
                             value = address,
-                            onValueChange = { address = it },
+                            onValueChange = {
+                                address = it.take(200)
+                                textoEditadoAMano = true
+                                direccionGuardada = null
+                            },
                             label = { Text("Dirección de entrega") },
+                            placeholder = { Text("Calle, número y distrito") },
                             modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { buscarEscrita() }),
                             trailingIcon = {
-                                IconButton(onClick = {
-                                    address = "Av. Salaverry 2020, Jesús María, Lima"
-                                }) {
-                                    Icon(Icons.Default.MyLocation, contentDescription = "Usar mi ubicación GPS")
+                                IconButton(onClick = ::buscarEscrita, enabled = address.trim().length >= 5) {
+                                    Icon(Icons.Default.Search, contentDescription = "Buscar dirección en el mapa")
                                 }
                             },
                             isError = !isAddressValid && address.isNotEmpty(),
                             supportingText = {
-                                if (!isAddressValid && address.isNotEmpty()) {
-                                    Text("Por favor ingresa una dirección válida")
-                                }
+                                if (!isAddressValid && address.isNotEmpty()) Text("Por favor ingresa una dirección válida")
                             }
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        // Referencia
                         OutlinedTextField(
                             value = reference,
-                            onValueChange = { reference = it },
+                            onValueChange = { reference = it.take(120) },
                             label = { Text("Referencia (Opcional)") },
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Punto en Mapa y Coordenadas para Reparto Simulado (FoodJet Web)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.PinDrop,
-                                            contentDescription = null,
-                                            tint = FoodJetPrimary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            "Coordenadas para Reparto",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = FoodJetPrimary.copy(alpha = 0.2f)
-                                    ) {
-                                        Text(
-                                            text = "%.4f, %.4f".format(deliveryLat, deliveryLon),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
+                        // Mapa con pin fijo en el centro (REQ-SEM10-VIS-01 / VIS-02)
+                        MapaFoodJet(
+                            modo = ModoMapa.SELECCION,
+                            controlador = controladorMapa,
+                            centroInicial = punto ?: puntoLocal,
+                            datos = DatosMapa(
+                                restaurante = puntoLocal?.let { PuntoMapa(it, local?.nombre ?: "Local", local?.direccion.orEmpty()) },
+                                // Con Google Maps el pin fijo del centro ya marca la entrega; el esquema necesita el punto.
+                                destino = punto?.takeIf { mapaDisponible == false }?.let { PuntoMapa(it, "Entrega", address) },
+                                cobertura = punto?.let { p -> precisionGps?.takeIf { it > 0 }?.let { p to it } }
+                            ),
+                            onCentroCambiado = { centro ->
+                                // El primer reposo es el encuadre inicial, no una elección del cliente.
+                                if (primerReposo) {
+                                    primerReposo = false
+                                    return@MapaFoodJet
                                 }
+                                if (punto == null || Geo.distanciaMetros(centro, punto!!) > 2) {
+                                    if (precisionGps != null && punto != null &&
+                                        Geo.distanciaMetros(centro, punto!!) > Geo.MISMA_UBICACION_M) precisionGps = null
+                                    punto = centro
+                                }
+                            },
+                            onDisponibilidad = { mapaDisponible = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp)
+                        )
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(
+                                onClick = ::usarMiUbicacion,
+                                enabled = !buscandoUbicacion,
+                                modifier = Modifier.heightIn(min = 48.dp)
+                            ) {
+                                if (buscandoUbicacion) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Usar mi ubicación")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            punto?.let { p ->
+                                val distancia = puntoLocal?.let { Geo.distanciaMetros(it, p) }
                                 Text(
-                                    "Selecciona una zona de cobertura en Lima:",
+                                    text = buildString {
+                                        append("%.5f, %.5f".format(p.latitud, p.longitud))
+                                        if (distancia != null) append("\nA ${Geo.formatearDistancia(distancia)} del local (en línea recta)")
+                                    },
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    listOf(
-                                        Triple("Miraflores", -12.1218, -77.0298),
-                                        Triple("San Isidro", -12.0970, -77.0340),
-                                        Triple("Jesús María", -12.0740, -77.0490)
-                                    ).forEach { (district, lat, lon) ->
-                                        val isSelected = deliveryLat == lat && deliveryLon == lon
-                                        FilterChip(
-                                            selected = isSelected,
-                                            onClick = {
-                                                deliveryLat = lat
-                                                deliveryLon = lon
-                                                address = when (district) {
-                                                    "Miraflores" -> "Av. Principal 123, Miraflores, Lima"
-                                                    "San Isidro" -> "Av. Javier Prado Este 450, San Isidro, Lima"
-                                                    else -> "Av. Salaverry 2020, Jesús María, Lima"
-                                                }
-                                            },
-                                            label = { Text(district, fontSize = 11.sp) }
-                                        )
-                                    }
-                                }
                             }
+                        }
+
+                        avisoUbicacion?.let { aviso ->
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(aviso, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            if (aviso.contains("Ajustes")) {
+                                TextButton(onClick = { IntentsFoodJet.abrirAjustesDeLaApp(context) }) { Text("Abrir Ajustes") }
+                            } else if (aviso.contains("apagada")) {
+                                TextButton(onClick = { IntentsFoodJet.abrirAjustesDeUbicacion(context) }) { Text("Activar ubicación") }
+                            }
+                        }
+                        if (faltaPunto) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                "Mueve el mapa hasta tu puerta o usa tu ubicación para marcar el punto de entrega.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
@@ -263,7 +508,6 @@ fun CheckoutScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Opción 1: Efectivo
                         PaymentOptionRow(
                             title = "Pago en Efectivo",
                             subtitle = "Paga contraentrega cuando recibas tu pedido",
@@ -274,10 +518,9 @@ fun CheckoutScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Opción 2: Tarjeta
                         PaymentOptionRow(
                             title = "Tarjeta de Crédito / Débito",
-                            subtitle = "Visa, Mastercard o AMEX",
+                            subtitle = "Pago simulado del curso: no se cobra a ninguna tarjeta",
                             icon = Icons.Default.CreditCard,
                             selected = paymentMethod == "card",
                             onClick = { paymentMethod = "card" }
@@ -287,9 +530,8 @@ fun CheckoutScreen(
                             Column(modifier = Modifier.padding(top = 10.dp, start = 8.dp, end = 8.dp)) {
                                 OutlinedTextField(
                                     value = cardNumber,
-                                    onValueChange = { cardNumber = it.take(19) },
+                                    onValueChange = { cardNumber = it.filter(Char::isDigit).take(16) },
                                     label = { Text("Número de tarjeta") },
-                                    placeholder = { Text("1234 5678 9012 3456") },
                                     modifier = Modifier.fillMaxWidth(),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -304,10 +546,10 @@ fun CheckoutScreen(
                                     )
                                     OutlinedTextField(
                                         value = cardCvc,
-                                        onValueChange = { cardCvc = it.take(3) },
+                                        onValueChange = { cardCvc = it.filter(Char::isDigit).take(4) },
                                         label = { Text("CVC") },
                                         modifier = Modifier.weight(1f),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
                                     )
                                 }
                             }
@@ -315,10 +557,9 @@ fun CheckoutScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Opción 3: Billetera Digital (Yape/Plin)
                         PaymentOptionRow(
                             title = "Billetera Digital (Yape / Plin)",
-                            subtitle = "Paga escaneando el código QR oficial",
+                            subtitle = "Paga escaneando el código QR del local",
                             icon = Icons.Default.QrCode,
                             selected = paymentMethod == "wallet",
                             onClick = { paymentMethod = "wallet" }
@@ -338,7 +579,6 @@ fun CheckoutScreen(
                         Text("Resumen del Pedido", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Artículos
                         cartItems.forEach { item ->
                             Row(
                                 modifier = Modifier
@@ -361,37 +601,32 @@ fun CheckoutScreen(
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                        // Código de Cupón
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedTextField(
                                 value = couponCode,
-                                onValueChange = { couponCode = it },
+                                onValueChange = { couponCode = it.take(30) },
                                 label = { Text("Código de cupón") },
-                                placeholder = { Text("Ejem: PruebaCupon") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = {
-                                    val code = couponCode.trim()
-                                    if (code.equals("PruebaCupon", ignoreCase = true)) {
-                                        couponAppliedId = 1
-                                        couponDiscountPercent = 0.10
-                                        couponMessage = "¡Cupón 'PruebaCupon' (10%) aplicado exitosamente!"
-                                    } else if (code.equals("FOODJET20", ignoreCase = true)) {
-                                        couponAppliedId = 2
-                                        couponDiscountPercent = 0.20
-                                        couponMessage = "¡Cupón 'FOODJET20' (20%) aplicado exitosamente!"
+                                    val cupon = CUPONES_BACKEND[couponCode.trim().lowercase()]
+                                    if (cupon != null) {
+                                        couponAppliedId = cupon.first
+                                        couponDiscountPercent = cupon.second
+                                        couponMessage = "Cupón '${cupon.third}' (${(cupon.second * 100).toInt()}%) aplicado"
                                     } else {
                                         couponAppliedId = null
                                         couponDiscountPercent = 0.0
-                                        couponMessage = "Código de cupón no reconocido. Disponibles: PruebaCupon, FOODJET20"
+                                        couponMessage = "Código de cupón no válido"
                                     }
                                 },
+                                enabled = couponCode.isNotBlank(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
                             ) {
@@ -399,10 +634,10 @@ fun CheckoutScreen(
                             }
                         }
 
-                        if (couponMessage != null) {
+                        couponMessage?.let { mensaje ->
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = couponMessage!!,
+                                text = mensaje,
                                 fontSize = 12.sp,
                                 color = if (couponAppliedId != null) FoodJetSuccess else MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold
@@ -411,7 +646,6 @@ fun CheckoutScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Desglose
                         FinanceRow("Subtotal", "S/ ${String.format("%.2f", subtotal)}")
                         if (couponAppliedId != null) {
                             FinanceRow("Descuento (${(couponDiscountPercent * 100).toInt()}%)", "-S/ ${String.format("%.2f", discount)}", isDiscount = true)
@@ -434,19 +668,25 @@ fun CheckoutScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
+                        Text(
+                            "El servidor confirma el importe final al registrar el pedido.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Botón Confirmar Pedido
                         Button(
                             onClick = {
-                                onConfirmOrderWithDetails(
+                                onConfirmar(
                                     paymentMethod,
-                                    total,
                                     couponAppliedId,
-                                    address,
-                                    deliveryLat,
-                                    deliveryLon
+                                    DeliverySelection(
+                                        direccion = address.trim(),
+                                        referencia = reference.trim().ifEmpty { null },
+                                        punto = punto,
+                                        direccionGuardadaId = direccionGuardada?.id
+                                    )
                                 )
                             },
                             enabled = isFormValid,
@@ -459,10 +699,14 @@ fun CheckoutScreen(
                                 contentColor = Color.Black
                             )
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null)
+                            if (isSubmitting) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.Black)
+                            } else {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Confirmar Pedido",
+                                text = if (isSubmitting) "Registrando..." else "Confirmar Pedido",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )

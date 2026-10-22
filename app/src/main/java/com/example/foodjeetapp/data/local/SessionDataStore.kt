@@ -5,9 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.foodjeetapp.data.model.UserProfile
+import com.example.foodjeetapp.data.remote.ServidorFoodJet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foodjet_session")
 
@@ -25,6 +29,24 @@ class SessionDataStore(private val context: Context) {
         private val KEY_PHONE = stringPreferencesKey("user_phone")
         private val KEY_IS_STUDENT = booleanPreferencesKey("is_student")
         private val KEY_IS_ADMIN = booleanPreferencesKey("is_admin")
+        private val KEY_SERVIDOR = stringPreferencesKey("servidor")
+
+        private val CLAVES_SESION = listOf(
+            KEY_TOKEN, KEY_USER_ID, KEY_NAME, KEY_EMAIL, KEY_PHONE, KEY_IS_STUDENT, KEY_IS_ADMIN
+        )
+    }
+
+    @Volatile
+    private var cachedToken: String? = null
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                tokenFlow.collect { token ->
+                    cachedToken = token
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     val tokenFlow: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -39,11 +61,16 @@ class SessionDataStore(private val context: Context) {
             UserProfile(
                 name = preferences[KEY_NAME] ?: "Usuario FoodJet",
                 email = email,
-                phone = preferences[KEY_PHONE] ?: "987654321",
+                phone = preferences[KEY_PHONE].orEmpty(),
                 isStudent = preferences[KEY_IS_STUDENT] ?: false,
                 isAdmin = preferences[KEY_IS_ADMIN] ?: false
             )
         }
+    }
+
+    /** Servidor contra el que trabaja la app (Mi cuenta → Servidor). */
+    val servidorFlow: Flow<ServidorFoodJet> = context.dataStore.data.map { preferences ->
+        ServidorFoodJet.desdeNombre(preferences[KEY_SERVIDOR])
     }
 
     suspend fun saveSession(
@@ -55,12 +82,13 @@ class SessionDataStore(private val context: Context) {
         isStudent: Boolean,
         isAdmin: Boolean = false
     ) {
+        cachedToken = token
         context.dataStore.edit { preferences ->
             preferences[KEY_TOKEN] = token
             preferences[KEY_USER_ID] = userId
             preferences[KEY_NAME] = name
             preferences[KEY_EMAIL] = email
-            preferences[KEY_PHONE] = phone ?: "987654321"
+            preferences[KEY_PHONE] = phone.orEmpty()
             preferences[KEY_IS_STUDENT] = isStudent
             preferences[KEY_IS_ADMIN] = isAdmin
         }
@@ -72,13 +100,23 @@ class SessionDataStore(private val context: Context) {
         }
     }
 
+    /** Cierra la sesión. El servidor elegido no es parte de la sesión y se conserva. */
     suspend fun clearSession() {
+        cachedToken = null
         context.dataStore.edit { preferences ->
-            preferences.clear()
+            CLAVES_SESION.forEach { preferences.remove(it) }
         }
     }
 
+    suspend fun guardarServidor(servidor: ServidorFoodJet) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SERVIDOR] = servidor.name
+        }
+    }
+
+    fun getCachedToken(): String? = cachedToken
+
     suspend fun getToken(): String? {
-        return tokenFlow.firstOrNull()
+        return cachedToken ?: tokenFlow.firstOrNull()
     }
 }
