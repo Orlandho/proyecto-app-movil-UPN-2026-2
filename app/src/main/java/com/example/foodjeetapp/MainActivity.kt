@@ -5,7 +5,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.ui.FoodJetApp
 import com.example.foodjeetapp.ui.IntentsFoodJet
@@ -23,10 +27,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FoodJetTheme {
-                FoodJetApp(
-                    pedidoSolicitado = pedidoSolicitado.value,
-                    onPedidoAtendido = { pedidoSolicitado.value = null }
-                )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    FoodJetApp(
+                        pedidoSolicitado = pedidoSolicitado.value,
+                        onPedidoAtendido = { pedidoSolicitado.value = null }
+                    )
+                }
             }
         }
     }

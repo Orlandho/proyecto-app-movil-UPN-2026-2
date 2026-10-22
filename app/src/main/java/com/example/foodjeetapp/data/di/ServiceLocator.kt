@@ -7,9 +7,9 @@ import com.example.foodjeetapp.data.location.LocationProvider
 import com.example.foodjeetapp.data.remote.RetrofitClient
 import com.example.foodjeetapp.data.remote.ServidorFoodJet
 import com.example.foodjeetapp.data.repository.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -22,13 +22,20 @@ import kotlinx.coroutines.withContext
 object ServiceLocator {
 
     private var appContext: Context? = null
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     fun initialize(context: Context) {
         if (appContext != null) return
         appContext = context.applicationContext
-        // El servidor tiene que estar decidido antes de la primera petición.
-        // Es una lectura local de unos milisegundos, una sola vez por proceso.
-        RetrofitClient.servidor = runBlocking { sessionDataStore.servidorFlow.first() }
+        // Arranque asíncrono no bloqueante: se sincroniza reactivamente con DataStore
+        // sin bloquear el hilo principal durante el primer pase de dibujo de Compose.
+        scope.launch {
+            try {
+                sessionDataStore.servidorFlow.collect { servidorGuardado ->
+                    RetrofitClient.servidor = servidorGuardado
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     private fun requireContext(): Context {

@@ -27,6 +27,9 @@ class AuthViewModel(
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -68,16 +71,21 @@ class AuthViewModel(
 
     fun login(email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
+            _isLoading.value = true
             _errorMessage.value = null
-            val result = userRepository.login(email, password)
-            result.onSuccess { profile ->
-                _currentUser.value = profile
-                _isLoggedIn.value = true
-                onSuccess(profile.name)
-            }.onFailure { error ->
-                val msg = error.message ?: "Error al iniciar sesión"
-                _errorMessage.value = msg
-                onError(msg)
+            try {
+                val result = userRepository.login(email, password)
+                result.onSuccess { profile ->
+                    _currentUser.value = profile
+                    _isLoggedIn.value = true
+                    onSuccess(profile.name)
+                }.onFailure { error ->
+                    val msg = error.message ?: "Error al iniciar sesión"
+                    _errorMessage.value = msg
+                    onError(msg)
+                }
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -91,16 +99,21 @@ class AuthViewModel(
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
+            _isLoading.value = true
             _errorMessage.value = null
-            val result = userRepository.register(name, email, phone, password)
-            result.onSuccess { profile ->
-                _currentUser.value = profile
-                _isLoggedIn.value = true
-                onSuccess()
-            }.onFailure { error ->
-                val msg = error.message ?: "Error al registrar la cuenta"
-                _errorMessage.value = msg
-                onError(msg)
+            try {
+                val result = userRepository.register(name, email, phone, password)
+                result.onSuccess { profile ->
+                    _currentUser.value = profile
+                    _isLoggedIn.value = true
+                    onSuccess()
+                }.onFailure { error ->
+                    val msg = error.message ?: "Error al registrar la cuenta"
+                    _errorMessage.value = msg
+                    onError(msg)
+                }
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -108,20 +121,16 @@ class AuthViewModel(
     fun verifyStudent(onSuccess: () -> Unit, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
             val result = userRepository.updateStudentStatus(true)
-            result.onSuccess {
-                _currentUser.value = _currentUser.value?.copy(isStudent = true)
-                onSuccess()
-            }.onFailure { err ->
-                onError(err.message ?: "No se pudo verificar el estado de estudiante")
-            }
+            result.onSuccess { onSuccess() }
+                .onFailure { onError(it.message ?: "No se pudo verificar el carnet") }
         }
     }
 
-    fun logout(onSuccess: () -> Unit) {
+    fun logout(onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             userRepository.logout()
-            _isLoggedIn.value = false
             _currentUser.value = null
+            _isLoggedIn.value = false
             onSuccess()
         }
     }

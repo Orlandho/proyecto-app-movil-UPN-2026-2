@@ -14,8 +14,8 @@ class AuthInterceptor(private val sessionDataStore: SessionDataStore) : Intercep
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
 
-        // Recuperar el token JWT almacenado en DataStore
-        val token = runBlocking { sessionDataStore.getToken() }
+        // Recuperar el token JWT almacenado en memoria o DataStore (sin bloquear el hilo si ya está en caché)
+        val token = sessionDataStore.getCachedToken() ?: runBlocking { sessionDataStore.getToken() }
 
         val requestBuilder = original.newBuilder()
         if (!token.isNullOrBlank()) {

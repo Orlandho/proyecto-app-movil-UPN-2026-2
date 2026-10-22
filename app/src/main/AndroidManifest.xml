@@ -23,6 +23,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FoodjeetApp">
+
+        <!-- Google Maps API Key opcional (también puede proveerse desde el backend /api/config) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="" />
+
         <!-- singleTop: el acceso directo "Seguir pedido" (Intent explícito) llega a
              onNewIntent de la instancia abierta en vez de apilar otra. -->
         <activity
