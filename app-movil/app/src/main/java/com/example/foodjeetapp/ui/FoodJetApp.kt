@@ -202,7 +202,8 @@ fun FoodJetApp(
                     onFavoritesClick = { irA(Rutas.FAVORITOS) },
                     onProfileClick = {
                         if (isLoggedIn) showMiCuentaDialog = true else showLoginDialog = true
-                    }
+                    },
+                    address = (addressesState as? UiState.Success)?.data?.firstOrNull()?.direccion ?: "Ingresa tu dirección"
                 )
             }
         },

@@ -5,6 +5,8 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -15,16 +17,24 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
@@ -40,10 +50,16 @@ import com.example.foodjeetapp.ui.IntentsFoodJet
 import com.example.foodjeetapp.ui.components.ControladorMapa
 import com.example.foodjeetapp.ui.components.DatosMapa
 import com.example.foodjeetapp.ui.components.MapaFoodJet
+import com.example.foodjeetapp.ui.components.FoodJetFooter
+import com.example.foodjeetapp.ui.components.FoodJetSectionHeader
 import com.example.foodjeetapp.ui.components.ModoMapa
 import com.example.foodjeetapp.ui.components.PuntoMapa
+import com.example.foodjeetapp.ui.theme.FoodJetBorder
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
-import com.example.foodjeetapp.ui.theme.FoodJetSuccess
+import com.example.foodjeetapp.ui.theme.FoodJetPrimaryLight
+import com.example.foodjeetapp.ui.theme.FoodJetSuccessDeep
+import com.example.foodjeetapp.ui.theme.FoodJetSuccessSoft
+import com.example.foodjeetapp.ui.theme.FoodJetTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -264,12 +280,13 @@ fun CheckoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Finalizar Pedido", fontWeight = FontWeight.Bold) },
+                title = { Text("Volver al carrito", fontSize = 15.sp, fontWeight = FontWeight.Medium) },
                 navigationIcon = {
                     IconButton(onClick = onBackToMenu) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { paddingValues ->
@@ -280,6 +297,18 @@ fun CheckoutScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Column {
+                    Text("A un paso del antojo.", fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Confirma tus datos y elige cómo pagar.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             if (!isLoggedIn) {
                 item {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
@@ -298,16 +327,13 @@ fun CheckoutScreen(
             // 1. Información de Entrega
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, FoodJetBorder)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = FoodJetPrimary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Información de Entrega", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
+                        FoodJetSectionHeader(Icons.Default.LocationOn, "¿Dónde lo llevamos?")
                         Spacer(modifier = Modifier.height(14.dp))
 
                         OutlinedTextField(
@@ -496,35 +522,23 @@ fun CheckoutScreen(
             // 2. Método de Pago
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, FoodJetBorder)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Payments, contentDescription = null, tint = FoodJetPrimary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Método de Pago", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
+                        FoodJetSectionHeader(Icons.Default.Payments, "¿Cómo quieres pagar?")
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        PaymentOptionRow(
-                            title = "Pago en Efectivo",
-                            subtitle = "Paga contraentrega cuando recibas tu pedido",
-                            icon = Icons.Default.AttachMoney,
-                            selected = paymentMethod == "cash",
-                            onClick = { paymentMethod = "cash" }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        PaymentOptionRow(
-                            title = "Tarjeta de Crédito / Débito",
-                            subtitle = "Pago simulado del curso: no se cobra a ninguna tarjeta",
-                            icon = Icons.Default.CreditCard,
-                            selected = paymentMethod == "card",
-                            onClick = { paymentMethod = "card" }
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            PaymentTile("Yape / Plin", "Escanea el QR", Icons.Default.QrCode, paymentMethod == "wallet", { paymentMethod = "wallet" }, Modifier.weight(1f))
+                            PaymentTile("Tarjeta", "Crédito o débito", Icons.Default.CreditCard, paymentMethod == "card", { paymentMethod = "card" }, Modifier.weight(1f))
+                            PaymentTile("Efectivo", "Paga al recibir", Icons.Default.AttachMoney, paymentMethod == "cash", { paymentMethod = "cash" }, Modifier.weight(1f))
+                        }
 
                         AnimatedVisibility(visible = paymentMethod == "card") {
                             Column(modifier = Modifier.padding(top = 10.dp, start = 8.dp, end = 8.dp)) {
@@ -555,15 +569,46 @@ fun CheckoutScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        AnimatedVisibility(visible = paymentMethod == "wallet") {
+                            Column(
+                                modifier = Modifier
+                                    .padding(top = 12.dp)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(FoodJetPrimaryLight)
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Paga con Yape o Plin", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(
+                                    "S/ ${String.format("%.2f", total)}",
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    "Paga escaneando el código QR del local",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
 
-                        PaymentOptionRow(
-                            title = "Billetera Digital (Yape / Plin)",
-                            subtitle = "Paga escaneando el código QR del local",
-                            icon = Icons.Default.QrCode,
-                            selected = paymentMethod == "wallet",
-                            onClick = { paymentMethod = "wallet" }
-                        )
+                        AnimatedVisibility(visible = paymentMethod == "cash") {
+                            Text(
+                                "Paga contraentrega cuando recibas tu pedido.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 10.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Tus pagos y datos están protegidos.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -571,30 +616,54 @@ fun CheckoutScreen(
             // 3. Resumen y Cupón
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, FoodJetBorder)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Resumen del Pedido", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        FoodJetSectionHeader(Icons.Default.ShoppingBag, "Tu pedido")
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${cartItems.firstOrNull()?.product?.restauranteNombre ?: "FoodJet"} · ${cartItems.sumOf { it.quantity }} productos",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         cartItems.forEach { item ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "${item.quantity}x ${item.product.nombre}",
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.weight(1f)
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(item.product.imagenUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = item.product.nombre,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .clip(RoundedCornerShape(12.dp))
                                 )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.product.nombre, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+                                    Text(
+                                        "Cantidad: ${item.quantity}",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Text(
                                     text = "S/ ${String.format("%.2f", item.product.getEffectivePrice(isStudent) * item.quantity)}",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -628,19 +697,24 @@ fun CheckoutScreen(
                                 },
                                 enabled = couponCode.isNotBlank(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
+                                colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White)
                             ) {
                                 Text("Aplicar")
                             }
                         }
 
                         couponMessage?.let { mensaje ->
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = mensaje,
                                 fontSize = 12.sp,
-                                color = if (couponAppliedId != null) FoodJetSuccess else MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold
+                                color = if (couponAppliedId != null) FoodJetSuccessDeep else MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (couponAppliedId != null) FoodJetSuccessSoft else Color.Transparent)
+                                    .padding(horizontal = 10.dp, vertical = if (couponAppliedId != null) 8.dp else 0.dp)
                             )
                         }
 
@@ -692,63 +766,60 @@ fun CheckoutScreen(
                             enabled = isFormValid,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(26.dp),
+                                .height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = FoodJetPrimary,
-                                contentColor = Color.Black
+                                contentColor = Color.White
                             )
                         ) {
                             if (isSubmitting) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.Black)
-                            } else {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                                Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isSubmitting) "Registrando..." else "Confirmar Pedido",
+                                text = when {
+                                    isSubmitting -> "Registrando..."
+                                    paymentMethod == "wallet" -> "Ya pagué · S/ ${String.format("%.2f", total)}"
+                                    else -> "Confirmar pedido · S/ ${String.format("%.2f", total)}"
+                                },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
+                            if (!isSubmitting) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
             }
+
+            item { FoodJetFooter() }
         }
     }
 }
 
 @Composable
-private fun PaymentOptionRow(
+private fun PaymentTile(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface,
-        border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, FoodJetPrimary) else androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f))
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) FoodJetPrimary else FoodJetBorder)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = selected,
-                onClick = onClick
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(imageVector = icon, contentDescription = null, tint = FoodJetPrimary)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Column(modifier = Modifier.padding(10.dp)) {
+            Icon(icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, lineHeight = 12.sp)
         }
     }
 }
@@ -764,13 +835,63 @@ private fun FinanceRow(label: String, value: String, isDiscount: Boolean = false
         Text(
             text = label,
             fontSize = 13.sp,
-            color = if (isDiscount) FoodJetSuccess else MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (isDiscount) FoodJetSuccessDeep else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (isDiscount) FoodJetSuccess else MaterialTheme.colorScheme.onSurface
+            color = if (isDiscount) FoodJetSuccessDeep else MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Preview(name = "PaymentTile - Light Mode", showBackground = true)
+@Composable
+private fun PaymentTileLightPreview() {
+    FoodJetTheme(darkTheme = false) {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PaymentTile(
+                title = "Efectivo",
+                subtitle = "Pagas al recibir",
+                icon = Icons.Default.AttachMoney,
+                selected = true,
+                onClick = {},
+                modifier = Modifier.weight(1f)
+            )
+            PaymentTile(
+                title = "Tarjeta",
+                subtitle = "Crédito o débito",
+                icon = Icons.Default.CreditCard,
+                selected = false,
+                onClick = {},
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Preview(name = "PaymentTile - Dark Mode", showBackground = true)
+@Composable
+private fun PaymentTileDarkPreview() {
+    FoodJetTheme(darkTheme = true) {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PaymentTile(
+                title = "Billetera QR",
+                subtitle = "Yape o Plin",
+                icon = Icons.Default.QrCode,
+                selected = true,
+                onClick = {},
+                modifier = Modifier.weight(1f)
+            )
+            PaymentTile(
+                title = "Efectivo",
+                subtitle = "Pagas al recibir",
+                icon = Icons.Default.AttachMoney,
+                selected = false,
+                onClick = {},
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }

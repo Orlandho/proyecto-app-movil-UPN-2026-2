@@ -1,38 +1,36 @@
 package com.example.foodjeetapp.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.PromotionSlide
-import com.example.foodjeetapp.ui.components.FeatureBadgesRow
 import com.example.foodjeetapp.ui.components.FilterSection
+import com.example.foodjeetapp.ui.components.FoodJetFooter
 import com.example.foodjeetapp.ui.components.HeroCarousel
 import com.example.foodjeetapp.ui.components.ProductCard
+import com.example.foodjeetapp.ui.theme.FoodJetBorder
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
+import com.example.foodjeetapp.ui.theme.FoodJetTheme
 
 @Composable
 fun HomeScreen(
@@ -50,6 +48,7 @@ fun HomeScreen(
     var minPrice by remember { mutableStateOf("") }
     var maxPrice by remember { mutableStateOf("") }
     var selectedDeliveryTime by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val allProducts = when (productsState) {
         is UiState.Success -> productsState.data
@@ -59,7 +58,7 @@ fun HomeScreen(
     val categories = remember(allProducts) { allProducts.map { it.tipoComida }.distinct() }
 
     // Lógica de filtrado reactivo
-    val filteredProducts = remember(allProducts, selectedCategories, minPrice, maxPrice, selectedDeliveryTime) {
+    val filteredProducts = remember(allProducts, selectedCategories, minPrice, maxPrice, selectedDeliveryTime, searchQuery) {
         allProducts.filter { product ->
             val minP = minPrice.toDoubleOrNull() ?: 0.0
             val maxP = maxPrice.toDoubleOrNull() ?: Double.MAX_VALUE
@@ -74,7 +73,12 @@ fun HomeScreen(
                 else -> true
             }
 
-            matchesPrice && matchesCategory && matchesTime
+            val q = searchQuery.trim()
+            val matchesSearch = q.isEmpty() ||
+                product.nombre.contains(q, ignoreCase = true) ||
+                product.descripcion.contains(q, ignoreCase = true)
+
+            matchesPrice && matchesCategory && matchesTime && matchesSearch
         }
     }
 
@@ -82,44 +86,53 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        // 1. Carrusel Hero
+        // 1. Titular y buscador
         item {
-            HeroCarousel(
-                slides = promotions,
-                onActionClick = { onNavigateToMenu() }
-            )
-        }
-
-        // 2. 4 Características del servicio
-        item {
-            FeatureBadgesRow()
-        }
-
-        // 3. Encabezado del Menú
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 20.dp, bottom = 8.dp, start = 16.dp, end = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
                 Text(
-                    text = "Nuestro Menú",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
+                    text = "Tu antojo. Sin escalas.",
+                    fontSize = 30.sp,
+                    lineHeight = 34.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Descubre una amplia variedad de platos deliciosos preparados con los mejores ingredientes.",
+                    text = "Lo mejor del barrio, directo a tu puerta.",
                     style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it.take(60) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("¿Qué se te antoja hoy?") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = FoodJetPrimary,
+                        unfocusedBorderColor = FoodJetBorder
+                    )
                 )
             }
         }
 
-        // 4. Barra de Filtros
+        // 2. Banner de promociones
+        if (promotions.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                HeroCarousel(
+                    slides = promotions,
+                    onActionClick = { onNavigateToMenu() }
+                )
+            }
+        }
+
+        // 3. Categorías y filtros
         item {
             FilterSection(
                 categories = categories,
@@ -137,6 +150,7 @@ fun HomeScreen(
                 onMaxPriceChange = { maxPrice = it },
                 selectedDeliveryTime = selectedDeliveryTime,
                 onDeliveryTimeChange = { selectedDeliveryTime = it },
+                onClearCategories = { selectedCategories = emptySet() },
                 onClearFilters = {
                     selectedCategories = emptySet()
                     minPrice = ""
@@ -146,7 +160,17 @@ fun HomeScreen(
             )
         }
 
-        // 5. Renderizado Condicional según UiState (REQ-SEM06-VIS-02)
+        item {
+            Text(
+                text = "Los favoritos del barrio",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        // 5. Renderizado Condicional según UiState
         when (productsState) {
             is UiState.Loading -> {
                 item {
@@ -190,7 +214,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = onRetry,
-                            colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
+                            colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
@@ -272,145 +296,103 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    items(filteredProducts) { product ->
-                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            ProductCard(
-                                product = product,
-                                isFavorite = favorites.contains(product.id),
-                                isStudent = isStudent,
-                                onFavoriteToggle = { onFavoriteToggle(product.id) },
-                                onAddToCart = { onAddToCart(product) }
-                            )
+                    items(filteredProducts.chunked(2)) { fila ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            fila.forEach { product ->
+                                Box(modifier = Modifier.weight(1f)) {
+                                    ProductCard(
+                                        product = product,
+                                        isFavorite = favorites.contains(product.id),
+                                        isStudent = isStudent,
+                                        onFavoriteToggle = { onFavoriteToggle(product.id) },
+                                        onAddToCart = { onAddToCart(product) }
+                                    )
+                                }
+                            }
+                            if (fila.size == 1) Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
             }
         }
 
-        // 6. Sección "¿Por qué elegir FoodJet?" (About)
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "¿Por qué elegir FoodJet?",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Somos más que un servicio de delivery. En FoodJet nos apasiona conectar a nuestros clientes con los mejores restaurantes de la ciudad. Garantizamos calidad, rapidez y el mejor servicio al cliente.",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("500+", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = FoodJetPrimaryDark)
-                            Text("Restaurantes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("50K+", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = FoodJetPrimaryDark)
-                            Text("Clientes felices", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("24/7", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = FoodJetPrimaryDark)
-                            Text("Servicio activo", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
+        // Pie de página
+        item { FoodJetFooter() }
+    }
+}
 
-        // 7. Sección "Contacto"
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Contáctanos",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+@Preview(name = "HomeScreen - Light Mode", showBackground = true)
+@Composable
+private fun HomeScreenLightPreview() {
+    FoodJetTheme(darkTheme = false) {
+        HomeScreen(
+            productsState = UiState.Success(
+                listOf(
+                    ProductItem(
+                        id = 1,
+                        nombre = "Hamburguesa FoodJet Clásica",
+                        descripcion = "Carne de res premium con queso cheddar y papas fritas crocantes.",
+                        precio = 18.50,
+                        descuentoEstudiante = 3.50,
+                        imagenUrl = "",
+                        tipoComida = "Hamburguesas",
+                        restauranteId = 1,
+                        restauranteNombre = "Burger Jet",
+                        tiempoEntrega = "20 min",
+                        disponibilidad = true
+                    ),
+                    ProductItem(
+                        id = 2,
+                        nombre = "Pizza Pepperoni Suprema",
+                        descripcion = "Masa artesanal con salsa de tomates frescos y pepperoni crocante.",
+                        precio = 24.00,
+                        descuentoEstudiante = 0.0,
+                        imagenUrl = "",
+                        tipoComida = "Pizzas",
+                        restauranteId = 2,
+                        restauranteNombre = "Pizza Fast",
+                        tiempoEntrega = "25 min",
+                        disponibilidad = true
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "¿Tienes alguna pregunta o sugerencia? Estamos aquí para ayudarte.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Email, contentDescription = null, tint = FoodJetPrimaryDark, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Email: hola@foodjet.com", fontSize = 13.sp)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Phone, contentDescription = null, tint = FoodJetPrimaryDark, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Teléfono: 01 234 5678", fontSize = 13.sp)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = FoodJetPrimaryDark, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Dirección: Av. Principal 123, Lima, Perú", fontSize = 13.sp)
-                    }
-                }
-            }
-        }
-
-        // 8. Footer FoodJet
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(FoodJetPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("✈️", fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("FoodJet", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "© 2026 FoodJet. Todos los derechos reservados.\nEntrega de comida rápida y confiable.",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
                 )
-            }
-        }
+            ),
+            promotions = listOf(
+                PromotionSlide(
+                    id = 1,
+                    title = "¡Mitad de precio!",
+                    subtitle = "En todas las hamburguesas los martes y jueves.",
+                    imageUrl = "",
+                    buttonText = "Pedir ahora"
+                )
+            ),
+            isStudent = true,
+            favorites = setOf(1),
+            onFavoriteToggle = {},
+            onAddToCart = {},
+            onNavigateToMenu = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview(name = "HomeScreen - Dark Mode", showBackground = true)
+@Composable
+private fun HomeScreenDarkPreview() {
+    FoodJetTheme(darkTheme = true) {
+        HomeScreen(
+            productsState = UiState.Success(emptyList()),
+            promotions = emptyList(),
+            isStudent = false,
+            favorites = emptySet(),
+            onFavoriteToggle = {},
+            onAddToCart = {},
+            onNavigateToMenu = {},
+            onRetry = {}
+        )
     }
 }

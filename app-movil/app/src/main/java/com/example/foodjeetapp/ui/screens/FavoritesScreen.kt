@@ -84,7 +84,7 @@ fun FavoritesScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onExploreMenu,
-                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text("Explorar el menú")
@@ -157,7 +157,7 @@ fun FavoritesScreen(
                                 Button(
                                     onClick = { onAddToCart(product) },
                                     shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black),
+                                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                     modifier = Modifier.height(32.dp)
                                 ) {
