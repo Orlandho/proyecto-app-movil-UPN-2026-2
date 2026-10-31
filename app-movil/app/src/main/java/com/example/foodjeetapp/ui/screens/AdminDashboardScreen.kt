@@ -174,7 +174,7 @@ fun AdminDashboardScreen(
                                                 Button(
                                                     onClick = { onAdvanceOrderStatus(o.id, siguiente) },
                                                     shape = RoundedCornerShape(14.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White),
                                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                                     modifier = Modifier
                                                         .heightIn(min = 48.dp)

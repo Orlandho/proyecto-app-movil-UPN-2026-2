@@ -289,7 +289,7 @@ private fun OrderCard(
                     onClick = onTrackOrder,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
+                    colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))

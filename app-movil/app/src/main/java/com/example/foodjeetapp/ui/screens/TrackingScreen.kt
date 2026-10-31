@@ -3,6 +3,7 @@ package com.example.foodjeetapp.ui.screens
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -35,10 +36,13 @@ import com.example.foodjeetapp.data.model.OrderStatus
 import com.example.foodjeetapp.data.model.Seguimiento
 import com.example.foodjeetapp.ui.IntentsFoodJet
 import com.example.foodjeetapp.ui.components.DatosMapa
+import com.example.foodjeetapp.ui.components.FoodJetFooter
 import com.example.foodjeetapp.ui.components.MapaFoodJet
 import com.example.foodjeetapp.ui.components.PuntoMapa
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
+import com.example.foodjeetapp.ui.theme.FoodJetBorder
+import com.example.foodjeetapp.ui.theme.FoodJetPrimaryLight
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -144,7 +148,8 @@ fun TrackingScreen(
                             Icon(Icons.Default.Share, contentDescription = "Compartir pedido")
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { paddingValues ->
@@ -207,6 +212,26 @@ fun TrackingScreen(
                 }
             }
 
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = if (order.estado == OrderStatus.EN_CAMINO) "¡Tu antojo va volando!" else "Sigue tu pedido",
+                    fontSize = 28.sp,
+                    lineHeight = 32.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "Pedido #${order.numericId} · Sigue cada parte del viaje.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            MapaDelPedido(order = order, reparto = reparto)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             EstadoActual(order = order, linea = linea, ahoraMs = ahoraMs)
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -215,8 +240,6 @@ fun TrackingScreen(
                 LineaDeTiempo(linea)
                 Spacer(modifier = Modifier.height(16.dp))
             }
-
-            MapaDelPedido(order = order, reparto = reparto)
 
             if (order.estado == OrderStatus.EN_CAMINO && reparto != null) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -250,8 +273,8 @@ fun TrackingScreen(
             Button(
                 onClick = onBackToMenu,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.Black)
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = FoodJetPrimary, contentColor = Color.White)
             ) {
                 Text("Volver al Menú", fontWeight = FontWeight.Bold)
             }
@@ -259,6 +282,7 @@ fun TrackingScreen(
             TextButton(onClick = onViewHistory, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("Ver Historial de Pedidos")
             }
+            FoodJetFooter()
         }
     }
 }
@@ -313,46 +337,51 @@ private fun EstadoActual(order: OrderRecord, linea: Seguimiento.Linea, ahoraMs: 
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, FoodJetBorder)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(90.dp)
-                    .scale(if (!status.isTerminal) pulseScale else 1.0f)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icono, contentDescription = null, tint = color, modifier = Modifier.size(46.dp))
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .scale(if (!status.isTerminal) pulseScale else 1.0f)
+                        .clip(CircleShape)
+                        .background(color)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = titulo.uppercase(),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = color
+                )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(titulo, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(descripcion, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
 
             // Llegada: real si ya ocurrió, estimada con el plan del backend si no.
-            linea.llegadaMs?.takeIf { !linea.cancelado }?.let { llegada ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (status == OrderStatus.ENTREGADO) {
-                                "Entregado a las ${HORA.format(Instant.ofEpochMilli(llegada))}"
-                            } else {
-                                "Llega aprox. a las ${HORA.format(Instant.ofEpochMilli(llegada))} · " +
-                                    Geo.formatearRestante(llegada - ahoraMs)
-                            },
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
+            val llegada = linea.llegadaMs?.takeIf { !linea.cancelado }
+            if (llegada != null && status != OrderStatus.ENTREGADO) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = Geo.formatearRestante(llegada - ahoraMs),
+                    fontSize = 34.sp,
+                    lineHeight = 38.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(descripcion, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (llegada != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (status == OrderStatus.ENTREGADO) {
+                        "Entregado a las ${HORA.format(Instant.ofEpochMilli(llegada))}"
+                    } else {
+                        "Llegada estimada: ${HORA.format(Instant.ofEpochMilli(llegada))}"
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -362,27 +391,88 @@ private fun EstadoActual(order: OrderRecord, linea: Seguimiento.Linea, ahoraMs: 
 private fun LineaDeTiempo(linea: Seguimiento.Linea) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, FoodJetBorder)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp), verticalAlignment = Alignment.Top) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             linea.etapas.forEachIndexed { i, etapa ->
-                StepNode(
-                    stepNumber = i + 1,
-                    label = etapa.etiqueta,
-                    hora = etapa.horaMs?.let { HORA.format(Instant.ofEpochMilli(it)) + if (etapa.estimada) " aprox." else "" },
-                    isCurrent = etapa.situacion == Seguimiento.Situacion.EN_CURSO,
-                    isCompleted = etapa.situacion == Seguimiento.Situacion.HECHA,
-                    modifier = Modifier.weight(1f)
-                )
-                if (i < linea.etapas.lastIndex) {
-                    StepLine(
-                        isCompleted = linea.etapas[i + 1].situacion == Seguimiento.Situacion.HECHA ||
-                            linea.etapas[i + 1].situacion == Seguimiento.Situacion.EN_CURSO,
-                        modifier = Modifier.weight(0.4f).padding(top = 15.dp)
-                    )
+                val actual = etapa.situacion == Seguimiento.Situacion.EN_CURSO
+                val hecha = etapa.situacion == Seguimiento.Situacion.HECHA
+                val ultima = i == linea.etapas.lastIndex
+                val hora = etapa.horaMs?.let { HORA.format(Instant.ofEpochMilli(it)) + if (etapa.estimada) " aprox." else "" }
+
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        PasoIndicador(actual = actual, hecha = hecha)
+                        if (!ultima) {
+                            val siguiente = linea.etapas[i + 1].situacion
+                            val colorLinea by animateColorAsState(
+                                targetValue = if (siguiente == Seguimiento.Situacion.HECHA || siguiente == Seguimiento.Situacion.EN_CURSO) {
+                                    FoodJetSuccess
+                                } else FoodJetBorder,
+                                label = "lineColor"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .weight(1f)
+                                    .background(colorLinea)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(bottom = if (ultima) 0.dp else 18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = etapa.etiqueta,
+                            fontSize = 15.sp,
+                            fontWeight = if (actual || hecha) FontWeight.Bold else FontWeight.Normal,
+                            color = if (actual || hecha) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (actual) {
+                            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text(
+                                    "Ahora",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        } else if (hora != null) {
+                            Text(hora, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PasoIndicador(actual: Boolean, hecha: Boolean) {
+    val fondo by animateColorAsState(
+        targetValue = when {
+            hecha -> FoodJetSuccess
+            actual -> FoodJetPrimary
+            else -> FoodJetBorder
+        },
+        label = "stepColor"
+    )
+    Box(
+        modifier = Modifier.size(28.dp).clip(CircleShape).background(fondo),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            hecha -> Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            actual -> Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -414,7 +504,26 @@ private fun MapaDelPedido(order: OrderRecord, reparto: RepartoEnVivo?) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            MapaFoodJet(datos = datos, modifier = Modifier.fillMaxWidth().height(260.dp))
+            Box {
+                MapaFoodJet(datos = datos, modifier = Modifier.fillMaxWidth().height(260.dp))
+                if (order.estado == OrderStatus.EN_CAMINO) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(FoodJetSuccess))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Actualizando en vivo", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val distanciaRuta = order.distanciaMetros ?: order.rutaPuntos.takeIf { it.size >= 2 }?.let(Geo::longitudRuta)
@@ -489,7 +598,7 @@ private fun DetallesDelPedido(order: OrderRecord) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Detalles del Pedido", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text("Tu pedido #${order.numericId}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(10.dp))
             DetailRow("Local:", order.restauranteNombre)
             DetailRow("Método de pago:", order.paymentMethod)
@@ -550,72 +659,6 @@ private fun HistorialDeEstados(order: OrderRecord) {
 }
 
 @Composable
-private fun StepNode(
-    stepNumber: Int,
-    label: String,
-    hora: String?,
-    isCurrent: Boolean,
-    isCompleted: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val bgColor by animateColorAsState(
-        targetValue = when {
-            isCompleted -> FoodJetSuccess
-            isCurrent -> FoodJetPrimary
-            else -> Color.LightGray.copy(alpha = 0.5f)
-        },
-        label = "stepColor"
-    )
-
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(bgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isCompleted) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-            } else {
-                Text(
-                    text = stepNumber.toString(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = if (isCurrent) Color.Black else Color.DarkGray
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontWeight = if (isCurrent || isCompleted) FontWeight.Bold else FontWeight.Normal,
-            textAlign = TextAlign.Center
-        )
-        if (hora != null) {
-            Text(text = hora, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-private fun StepLine(isCompleted: Boolean, modifier: Modifier = Modifier) {
-    val color by animateColorAsState(
-        targetValue = if (isCompleted) FoodJetSuccess else Color.LightGray.copy(alpha = 0.5f),
-        label = "lineColor"
-    )
-    Box(
-        modifier = modifier
-            .height(3.dp)
-            .background(color)
-    )
-}
-
-@Composable
 private fun DetailRow(label: String, value: String, isBold: Boolean = false) {
     Row(
         modifier = Modifier
@@ -635,7 +678,7 @@ private fun DetailRow(label: String, value: String, isBold: Boolean = false) {
             text = value,
             fontSize = if (isBold) 13.sp else 12.sp,
             fontWeight = if (isBold) FontWeight.ExtraBold else FontWeight.SemiBold,
-            color = if (isBold) FoodJetPrimaryDark else MaterialTheme.colorScheme.onSurface,
+            color = if (isBold) FoodJetPrimary else MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End
         )
     }

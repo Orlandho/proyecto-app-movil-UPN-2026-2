@@ -44,3 +44,6 @@ backend/node_modules/
 backend/.env
 backend/.env.local
 backend/npm-debug.log*
+
+# Agent working directory
+.agents/
