@@ -22,3 +22,17 @@ Feature: CP-11 Reglas de cobro
       | wallet  | true   |
       | bitcoin | false  |
       |         | false  |
+
+  Scenario Outline: PAG-003 El efectivo queda cobrado al entregar el pedido
+    Given el metodo de pago es "<metodo>"
+    And el pago esta "<estado_actual>"
+    When el pedido pasa a "<estado_pedido>"
+    Then el pago queda "<resultado>"
+
+    Examples:
+      | metodo | estado_actual | estado_pedido | resultado  |
+      | cash   | pendiente     | entregado     | completado |
+      | cash   | pendiente     | en_camino     | sin cambio |
+      | cash   | pendiente     | cancelado     | sin cambio |
+      | card   | completado    | entregado     | sin cambio |
+      | wallet | completado    | entregado     | sin cambio |
