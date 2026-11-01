@@ -9,6 +9,7 @@
 const prisma = require('../config/db');
 const { normalizeEstado } = require('../domain/orderStatus');
 const { simplificarRuta } = require('../domain/geo');
+const { estadoPagoTrasCambio } = require('../domain/payment');
 const { leerConfigSimulacion, duracionRepartoSegundos, conDuracionReparto } = require('../domain/simulacion');
 const { planificarReparto } = require('./routing');
 
@@ -92,6 +93,13 @@ async function cambiarEstado(pedidoId, nuevoEstado, origen, { desde } = {}) {
         await tx.orderStatusHistory.create({
             data: { pedido_id: pedidoId, estado, origen, fecha: ahora }
         });
+
+        // El cobro sigue al pedido: el efectivo queda pagado al entregarse.
+        const pago = await tx.transaction.findUnique({ where: { pedido_id: pedidoId } });
+        const estadoPago = pago && estadoPagoTrasCambio(pago.metodo_pago, pago.estado_pago, estado);
+        if (estadoPago) {
+            await tx.transaction.update({ where: { id: pago.id }, data: { estado_pago: estadoPago } });
+        }
 
         const pedido = await tx.order.findUnique({ where: { id: pedidoId } });
 
