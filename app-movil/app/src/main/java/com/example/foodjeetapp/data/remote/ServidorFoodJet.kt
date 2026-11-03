@@ -27,14 +27,14 @@ enum class ServidorFoodJet(
         descripcion = "Node.js local en este PC (10.0.2.2:3000)",
         apiUrl = "http://10.0.2.2:3000/api/",
         webOrigen = "http://10.0.2.2:3000/",
-        origenMapa = "http://localhost:3000/"
+        origenMapa = "http://localhost:8081/"
     ),
     NODE_LOCAL_USB(
         etiqueta = "Backend MySQL · Celular USB (3000)",
         descripcion = "Node.js local en este PC con «adb reverse tcp:3000 tcp:3000»",
         apiUrl = "http://localhost:3000/api/",
         webOrigen = "http://localhost:3000/",
-        origenMapa = "http://localhost:3000/"
+        origenMapa = "http://localhost:8081/"
     ),
     PRODUCCION(
         etiqueta = "Producción",
