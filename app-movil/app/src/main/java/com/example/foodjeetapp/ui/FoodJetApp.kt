@@ -532,9 +532,6 @@ fun FoodJetApp(
                     avisar("Ahora usas ${nuevo.etiqueta}. Inicia sesión de nuevo.")
                 }
             },
-            onAbrirWeb = {
-                if (!IntentsFoodJet.abrirWeb(context, servidor.webOrigen)) avisar("No hay navegador instalado")
-            },
             onVerifyStudent = {
                 authViewModel.verifyStudent(
                     onSuccess = {

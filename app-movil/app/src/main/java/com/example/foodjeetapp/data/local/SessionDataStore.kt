@@ -68,7 +68,7 @@ class SessionDataStore(private val context: Context) {
         }
     }
 
-    /** Servidor contra el que trabaja la app (Mi cuenta → Servidor). */
+    /** Modo de acceso al backend local (Mi cuenta → Conexión local). */
     val servidorFlow: Flow<ServidorFoodJet> = context.dataStore.data.map { preferences ->
         ServidorFoodJet.desdeNombre(preferences[KEY_SERVIDOR])
     }

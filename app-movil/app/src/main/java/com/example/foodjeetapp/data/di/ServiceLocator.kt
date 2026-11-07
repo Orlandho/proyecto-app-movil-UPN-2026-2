@@ -79,9 +79,8 @@ object ServiceLocator {
     }
 
     /**
-     * Pasa a trabajar contra otro servidor. La sesión y el catálogo en caché
-     * pertenecen al servidor anterior (otro JWT_SECRET, otros ids), así que
-     * se descartan.
+     * Cambia entre dos rutas hacia el backend del repositorio (emulador / USB).
+     * Por seguridad se reinicia la sesión y se limpia la caché local.
      */
     suspend fun cambiarServidor(servidor: ServidorFoodJet) = withContext(Dispatchers.IO) {
         sessionDataStore.guardarServidor(servidor)

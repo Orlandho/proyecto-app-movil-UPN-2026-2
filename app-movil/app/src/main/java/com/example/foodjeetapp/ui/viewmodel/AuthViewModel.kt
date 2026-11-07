@@ -11,6 +11,7 @@ import com.example.foodjeetapp.data.repository.ValidacionSesion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -48,7 +49,15 @@ class AuthViewModel(
                 _isLoggedIn.value = profile != null
             }
         }
+        // Sincroniza el modo local guardado con lo que muestra la interfaz.
         viewModelScope.launch {
+            ServiceLocator.sessionDataStore.servidorFlow.collect { modoLocal ->
+                _servidor.value = modoLocal
+            }
+        }
+        viewModelScope.launch {
+            // Evita validar un JWT en el modo Emulador antes de restaurar el modo USB.
+            RetrofitClient.servidor = ServiceLocator.sessionDataStore.servidorFlow.first()
             if (userRepository.validarSesion() == ValidacionSesion.RECHAZADA) _sesionRechazada.value = true
         }
     }
@@ -57,7 +66,7 @@ class AuthViewModel(
         _sesionRechazada.value = false
     }
 
-    /** Cambia de servidor. Cierra la sesión: el token de un servidor no vale en otro. */
+    /** Cambia únicamente la ruta de acceso al backend local (emulador / USB). */
     fun cambiarServidor(nuevo: ServidorFoodJet, onDone: () -> Unit) {
         if (nuevo == _servidor.value) return
         viewModelScope.launch {

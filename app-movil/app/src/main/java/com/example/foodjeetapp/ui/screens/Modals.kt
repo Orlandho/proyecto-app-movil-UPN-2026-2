@@ -556,7 +556,6 @@ fun MiCuentaDialog(
     isAdmin: Boolean = false,
     servidor: ServidorFoodJet,
     onCambiarServidor: (ServidorFoodJet) -> Unit,
-    onAbrirWeb: () -> Unit,
     onVerifyStudent: () -> Unit,
     onOpenAdminDashboard: () -> Unit = {},
     onLogout: () -> Unit,
@@ -652,13 +651,6 @@ fun MiCuentaDialog(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-                // Intent implícito: lo abre el navegador que tenga el teléfono.
-                TextButton(onClick = onAbrirWeb, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Abrir FoodJet en el navegador")
-                }
-
                 SelectorServidor(servidor = servidor, onCambiar = onCambiarServidor)
 
                 Spacer(modifier = Modifier.height(12.dp))
