@@ -9,7 +9,8 @@ const {
 const {
     isMetodoValido,
     resolvePaymentStatus,
-    resolveInitialOrderStatus
+    resolveInitialOrderStatus,
+    estadoPagoTrasCambio
 } = require('../../src/domain/payment');
 
 // Se prueban los modulos de dominio REALES que usa orderController.
@@ -53,4 +54,16 @@ Then('el estado inicial del pedido es {string}', function (esperado) {
 
 Then('el metodo se considera {word}', function (esperado) {
     expect(isMetodoValido(this.metodo)).to.equal(esperado === 'true');
+});
+
+Given('el pago esta {string}', function (estado) {
+    this.estadoPago = estado;
+});
+
+When('el pedido pasa a {string}', function (estado) {
+    this.nuevoEstadoPago = estadoPagoTrasCambio(this.metodo, this.estadoPago, estado);
+});
+
+Then('el pago queda {string}', function (esperado) {
+    expect(this.nuevoEstadoPago).to.equal(esperado === 'sin cambio' ? null : esperado);
 });

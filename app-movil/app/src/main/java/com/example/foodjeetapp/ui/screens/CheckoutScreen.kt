@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +45,7 @@ import com.example.foodjeetapp.data.di.ServiceLocator
 import com.example.foodjeetapp.data.model.CartItem
 import com.example.foodjeetapp.data.model.DeliverySelection
 import com.example.foodjeetapp.data.model.Geo
+import com.example.foodjeetapp.data.model.ValidacionTarjeta
 import com.example.foodjeetapp.data.model.GeoPoint
 import com.example.foodjeetapp.data.model.SavedAddress
 import com.example.foodjeetapp.data.remote.dto.RestaurantDto
@@ -230,14 +233,23 @@ fun CheckoutScreen(
     val isAddressValid = address.trim().length >= 5
     // Con mapa, el punto es obligatorio: es el destino del repartidor.
     val faltaPunto = mapaDisponible == true && punto == null
-    val isFormValid = isLoggedIn && isNameValid && isPhoneValid && isAddressValid && !faltaPunto &&
-        cartItems.isNotEmpty() && !isSubmitting
 
     // Selección de Método de Pago: canónicos 'cash', 'card', 'wallet'
     var paymentMethod by remember { mutableStateOf("cash") } // cash, card, wallet
     var cardNumber by remember { mutableStateOf("") }
-    var cardExpiry by remember { mutableStateOf("") }
+    // TextFieldValue y no String: al insertar la "/" el cursor tiene que quedar al final.
+    var cardExpiryCampo by remember { mutableStateOf(TextFieldValue("")) }
+    val cardExpiry = cardExpiryCampo.text
     var cardCvc by remember { mutableStateOf("") }
+
+    // Con tarjeta el pedido entra como pagado: no se confirma con datos vacíos o imposibles.
+    val isCardNumberValid = ValidacionTarjeta.numeroValido(cardNumber)
+    val isCardExpiryValid = ValidacionTarjeta.vencimientoValido(cardExpiry)
+    val isCardCvcValid = ValidacionTarjeta.cvcValido(cardCvc)
+    val isPaymentValid = paymentMethod != "card" || (isCardNumberValid && isCardExpiryValid && isCardCvcValid)
+
+    val isFormValid = isLoggedIn && isNameValid && isPhoneValid && isAddressValid && !faltaPunto &&
+        isPaymentValid && cartItems.isNotEmpty() && !isSubmitting
 
     var couponCode by remember { mutableStateOf("") }
     var couponAppliedId by remember { mutableStateOf<Int?>(null) }
@@ -544,18 +556,31 @@ fun CheckoutScreen(
                             Column(modifier = Modifier.padding(top = 10.dp, start = 8.dp, end = 8.dp)) {
                                 OutlinedTextField(
                                     value = cardNumber,
-                                    onValueChange = { cardNumber = it.filter(Char::isDigit).take(16) },
+                                    onValueChange = { cardNumber = it.filter(Char::isDigit).take(19) },
                                     label = { Text("Número de tarjeta") },
                                     modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    isError = cardNumber.isNotEmpty() && !isCardNumberValid,
+                                    supportingText = {
+                                        if (cardNumber.isNotEmpty() && !isCardNumberValid) Text("Número de tarjeta no válido")
+                                    },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedTextField(
-                                        value = cardExpiry,
-                                        onValueChange = { cardExpiry = it.take(5) },
+                                        value = cardExpiryCampo,
+                                        onValueChange = { campo ->
+                                            val texto = ValidacionTarjeta.formatearVencimiento(campo.text)
+                                            cardExpiryCampo = TextFieldValue(texto, TextRange(texto.length))
+                                        },
                                         label = { Text("MM/AA") },
                                         modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        isError = cardExpiry.length == 5 && !isCardExpiryValid,
+                                        supportingText = {
+                                            if (cardExpiry.length == 5 && !isCardExpiryValid) Text("Vencida o inválida")
+                                        },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                     )
                                     OutlinedTextField(
@@ -563,7 +588,19 @@ fun CheckoutScreen(
                                         onValueChange = { cardCvc = it.filter(Char::isDigit).take(4) },
                                         label = { Text("CVC") },
                                         modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        isError = cardCvc.isNotEmpty() && !isCardCvcValid,
+                                        supportingText = {
+                                            if (cardCvc.isNotEmpty() && !isCardCvcValid) Text("3 o 4 dígitos")
+                                        },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                                    )
+                                }
+                                if (!isPaymentValid) {
+                                    Text(
+                                        "Completa los datos de la tarjeta para confirmar. Es un cobro simulado: los datos no salen del teléfono.",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }

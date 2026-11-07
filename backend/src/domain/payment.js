@@ -29,9 +29,25 @@ function resolveInitialOrderStatus(estadoPago) {
     return estadoPago === 'completado' ? 'confirmado' : 'pendiente';
 }
 
+/**
+ * Estado del pago cuando el pedido cambia de estado, o null si no cambia.
+ *
+ * El efectivo se cobra en la puerta: al entregar el pedido el pago queda
+ * completado. Antes se quedaba en 'pendiente' para siempre, aunque el
+ * pedido ya estuviera entregado y cobrado.
+ */
+function estadoPagoTrasCambio(metodo, estadoPagoActual, nuevoEstadoPedido) {
+    const esEfectivo = String(metodo || '').toLowerCase() === 'cash';
+    if (esEfectivo && estadoPagoActual === 'pendiente' && nuevoEstadoPedido === 'entregado') {
+        return 'completado';
+    }
+    return null;
+}
+
 module.exports = {
     METODOS_VALIDOS,
     isMetodoValido,
     resolvePaymentStatus,
-    resolveInitialOrderStatus
+    resolveInitialOrderStatus,
+    estadoPagoTrasCambio
 };
