@@ -38,7 +38,7 @@ enum class ServidorFoodJet(
     /** Resuelve recursos del backend local, sin abrir URLs de servidores externos. */
     fun recurso(ruta: String?): String? {
         val limpia = ruta?.trim().orEmpty()
-        if (limpia.isEmpty()) return null
+        if (limpia.isEmpty() || '\\' in limpia) return null
         val absoluta = limpia.toHttpUrlOrNull()
         if (absoluta != null) {
             val local = apiHttpUrl
@@ -47,7 +47,9 @@ enum class ServidorFoodJet(
             ) limpia else null
         }
         if (limpia.contains("://") || limpia.startsWith("//")) return null
-        return webOrigen.trimEnd('/') + "/" + limpia.trimStart('/')
+        val path = limpia.trimStart('/')
+        if (path.isBlank() || path.split('/').any { it == "." || it == ".." }) return null
+        return webOrigen.trimEnd('/') + "/" + path
     }
 
     companion object {
