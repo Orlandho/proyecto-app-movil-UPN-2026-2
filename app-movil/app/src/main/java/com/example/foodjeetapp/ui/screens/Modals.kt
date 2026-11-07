@@ -539,7 +539,7 @@ fun SelectorServidor(
                 }
             }
             Text(
-                "Cambiar de modo local cierra la sesión.",
+                "Ambas opciones usan el mismo backend y conservan tu sesión.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp)
