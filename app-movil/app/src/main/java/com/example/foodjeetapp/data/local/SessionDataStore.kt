@@ -114,6 +114,25 @@ class SessionDataStore(private val context: Context) {
         }
     }
 
+    /**
+     * Borra JWT y caché de identidad ligados a perfiles de otro backend.
+     * Los dos perfiles NODE_LOCAL_* representan el MISMO backend interno.
+     */
+    suspend fun migrarConfiguracionServidor() {
+        context.dataStore.edit { preferences ->
+            when (preferences[KEY_SERVIDOR]) {
+                null, "NODE_LOCAL_EMULADOR", "NODE_LOCAL_USB" -> Unit
+                "BACKEND_LOCAL_EMULADOR" -> preferences[KEY_SERVIDOR] = "NODE_LOCAL_EMULADOR"
+                "BACKEND_LOCAL_USB" -> preferences[KEY_SERVIDOR] = "NODE_LOCAL_USB"
+                else -> {
+                    CLAVES_SESION.forEach { preferences.remove(it) }
+                    cachedToken = null
+                    preferences[KEY_SERVIDOR] = ServidorFoodJet.PREDETERMINADO.name
+                }
+            }
+        }
+    }
+
     fun getCachedToken(): String? = cachedToken
 
     suspend fun getToken(): String? {
