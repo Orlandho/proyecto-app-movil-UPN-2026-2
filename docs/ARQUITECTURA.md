@@ -1,5 +1,7 @@
 # Arquitectura y Flujos del Sistema - FoodJet App (UPN 2026-2)
 
+> **Aviso de vigencia:** algunos diagramas reflejan diseños académicos o integraciones planeadas (por ejemplo Firebase) que no corresponden al código ejecutable actual. La única API de negocio Android es `backend/` (Node.js, Express, Prisma, MySQL, puerto 3000), accesible mediante emulador o USB. Ver [guía vigente](INTEGRACION_BACKEND_FOODJET.md).
+
 Este documento centraliza la arquitectura de software, los flujos de navegación, el ciclo de pedidos y la gobernanza del repositorio regulada por `.github/CODEOWNERS` para el proyecto **FoodJet App**.
 
 Todos los diagramas vectoriales generados en formato SVG de alta resolución se encuentran en el directorio [`mermaid diagramas/`](../mermaid%20diagramas/).
