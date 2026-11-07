@@ -31,6 +31,7 @@ object ServiceLocator {
         // sin bloquear el hilo principal durante el primer pase de dibujo de Compose.
         scope.launch {
             try {
+                sessionDataStore.migrarConfiguracionServidor()
                 sessionDataStore.servidorFlow.collect { servidorGuardado ->
                     RetrofitClient.servidor = servidorGuardado
                 }
@@ -78,14 +79,9 @@ object ServiceLocator {
         )
     }
 
-    /**
-     * Cambia entre dos rutas hacia el backend del repositorio (emulador / USB).
-     * Por seguridad se reinicia la sesión y se limpia la caché local.
-     */
+    /** Cambia solo la ruta local al MISMO backend; la sesión continúa válida. */
     suspend fun cambiarServidor(servidor: ServidorFoodJet) = withContext(Dispatchers.IO) {
         sessionDataStore.guardarServidor(servidor)
-        sessionDataStore.clearSession()
-        database.productDao().clearAll()
         RetrofitClient.servidor = servidor
     }
 }
