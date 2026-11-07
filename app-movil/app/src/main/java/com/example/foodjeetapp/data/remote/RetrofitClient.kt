@@ -85,16 +85,11 @@ class ServidorInterceptor(
         }
 
         val destino = servidorActual().apiHttpUrl
-        val relativos = origen.pathSegments.drop(1).filter { it.isNotEmpty() }
+        // Conserva exactamente el encodedPath y los query params de la petición.
         val url = origen.newBuilder()
             .scheme(destino.scheme)
             .host(destino.host)
             .port(destino.port)
-            .encodedPath("/")
-            .apply {
-                destino.pathSegments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) }
-                relativos.forEach { addPathSegment(it) }
-            }
             .build()
 
         return chain.proceed(original.newBuilder().url(url).build())
