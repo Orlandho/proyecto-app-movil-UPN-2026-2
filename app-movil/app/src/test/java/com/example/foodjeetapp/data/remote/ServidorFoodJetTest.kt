@@ -58,6 +58,13 @@ class ServidorFoodJetTest {
         )
     }
 
+    @Test fun `conserva el path codificado sin alterar el query`() {
+        assertEquals(
+            "http://localhost:3000/api/products/item%2Fspecial?discount=100%25",
+            reescribir(ServidorFoodJet.NODE_LOCAL_USB, "http://10.0.2.2:3000/api/products/item%2Fspecial?discount=100%25")
+        )
+    }
+
     @Test fun `modo usb solo usa localhost en puerto 3000`() {
         assertEquals(
             "http://localhost:3000/api/auth/login",
@@ -91,6 +98,8 @@ class ServidorFoodJetTest {
         assertNull(ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("https://foodjet.asen.pe/img/qr/externo.svg"))
         assertNull(ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("//example.com/image.svg"))
         assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso(" "))
+        assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso("../secret"))
+        assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso("https://example.com/qr.svg"))
     }
 
     @Test fun `configuraciones antiguas ya no habilitan servidores externos`() {
