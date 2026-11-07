@@ -10,7 +10,7 @@ La única API permitida es la de `backend/` en este repositorio, ejecutándose e
 | **Backend MySQL · Celular USB (3000)** | `http://localhost:3000/api/` | Backend Node.js de este repo (`backend/`) con MySQL en tu PC y la app en un celular físico por USB con `adb reverse tcp:3000 tcp:3000`. |
 
 > [!NOTE]
-> Para seleccionar entre **Emulador** y **Celular USB** usa **Conexión local** en **Iniciar Sesión** o **Mi Cuenta**. Ambas opciones acceden al mismo backend Node.js de este repositorio; cambiar de modo cierra la sesión para evitar caché de otro entorno. Las preferencias antiguas de producción o Docker se convierten al modo local predeterminado.
+> Para seleccionar entre **Emulador** y **Celular USB** usa **Conexión local** en **Iniciar Sesión** o **Mi Cuenta**. Ambas opciones acceden al mismo backend Node.js de este repositorio; cambiar de modo conserva la sesión porque las dos rutas usan el mismo backend. Si la preferencia antigua apuntaba a otro backend, la migración descarta su JWT y restablece el modo local predeterminado.
 
 ---
 
