@@ -509,7 +509,7 @@ private fun ImagenRemota(url: String, descripcion: String, onCargada: () -> Unit
     )
 }
 
-/** Elige contra qué servidor trabaja la app. Se guarda con DataStore. */
+/** Solo permite elegir el acceso al backend/ de este repositorio: emulador o USB. */
 @Composable
 fun SelectorServidor(
     servidor: ServidorFoodJet,
@@ -520,7 +520,7 @@ fun SelectorServidor(
         TextButton(onClick = { abierto = !abierto }, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Servidor: ${servidor.etiqueta}", fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("Conexión local: ${servidor.etiqueta}", fontSize = 12.sp, modifier = Modifier.weight(1f))
             Icon(if (abierto) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
         }
         if (abierto) {
@@ -539,7 +539,7 @@ fun SelectorServidor(
                 }
             }
             Text(
-                "Cambiar de servidor cierra la sesión.",
+                "Cambiar de modo local cierra la sesión.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp)

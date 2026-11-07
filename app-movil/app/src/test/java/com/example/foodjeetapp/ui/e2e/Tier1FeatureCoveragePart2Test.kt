@@ -528,7 +528,7 @@ class Tier1FeatureCoveragePart2Test {
     @Test
     fun test_f22_05_e2e_server_selector_contract_verification() {
         assertEquals(ServidorFoodJet.NODE_LOCAL_EMULADOR, ServidorFoodJet.PREDETERMINADO)
-        assertEquals(5, ServidorFoodJet.values().size)
+        assertEquals(2, ServidorFoodJet.values().size)
     }
 
     // =========================================================================

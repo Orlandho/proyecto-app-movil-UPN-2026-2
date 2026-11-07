@@ -1,6 +1,8 @@
 # 🚀 Guía Técnica de Integración: App Móvil FoodJet ↔ Backend Node.js / MySQL
 
-Este documento establece la especificación técnica, arquitectura y plan de acción detallado para conectar la aplicación móvil Android ([`FoodJetApp`](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/app-movil/app/src/main/java/com/example/foodjeetapp/ui/FoodJetApp.kt)) al backend de **FoodJet** ubicado en la carpeta [`backend/`](../backend/) de este repositorio (migrado a **MySQL**), eliminando todo dato simulado (*mock*) y permitiendo también el consumo de servidores alternativos (Docker Caddy o Cloudflare).
+> **Documento histórico de diseño.** El código actual solo admite el backend local `backend/` por el puerto 3000 (emulador o USB). Los ejemplos antiguos de producción, Docker/Caddy, URL dinámica, Wi-Fi o `buildConfigField` en este documento **no son configuraciones vigentes ni deben implementarse**. Consulta la guía canónica [PRUEBA_CON_BACKEND_LOCAL.md](PRUEBA_CON_BACKEND_LOCAL.md).
+
+Este documento establece la especificación técnica, arquitectura y plan de acción detallado para conectar la aplicación móvil Android ([`FoodJetApp`](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/app-movil/app/src/main/java/com/example/foodjeetapp/ui/FoodJetApp.kt)) al backend de **FoodJet** ubicado en la carpeta [`backend/`](../backend/) de este repositorio (migrado a **MySQL**), eliminando los datos simulados (*mock*). La versión actual elimina el soporte de servidores alternativos.
 
 Esta guía se rige de forma estricta por los requerimientos técnicos semanales definidos en el archivo [AGENTS.md](file:///C:/Users/Orlando/Desktop/proyecto%20app%20movil%20UPN%202026-2/AGENTS.md).
 
