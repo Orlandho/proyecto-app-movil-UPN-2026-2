@@ -10,7 +10,7 @@
   - `ui/viewmodel/`: Presentation and state management (`HomeViewModel`, `CartViewModel`, `OrderViewModel`, `AuthViewModel`) - preserved as single source of truth.
 - **Shared Interfaces & Contracts**:
   - UI strictly observes ViewModels via `collectAsStateWithLifecycle()` and triggers actions via lambdas.
-  - No changes permitted to Gradle configuration, network layer, DTOs, database schemas, or backend services.
+  - The original UI-only milestone restricted network changes; the approved backend consolidation updates only Android networking and its tests. Gradle configuration, DTOs, and database schemas remain protected.
 
 ## Code Layout
 ```
@@ -112,7 +112,7 @@ app-movil/app/src/main/java/com/example/foodjeetapp/ui/
 - `repartoEnVivo(order: Order, ahoraServidorMs: Long): DatosReparto` MUST remain accessible and preserve exact return values and interpolation mathematics.
 
 ### `Modals.kt` ↔ `FoodJetApp.kt`
-- `LoginDialog`, `RegisterDialog`, `QrPaymentDialog`, `ReviewDialog`, `MiCuentaDialog`, and `SelectorServidor` must retain all exact parameters and callbacks.
+- Preserve login, registration, QR, reviews and account flows. `SelectorServidor` only selects Emulador or USB, both using this repository's `backend/`; external web callbacks and server options were intentionally removed.
 
 ## Baseline Quality Metrics
 - Git commit: `38818c7` on `feat/UI-update`

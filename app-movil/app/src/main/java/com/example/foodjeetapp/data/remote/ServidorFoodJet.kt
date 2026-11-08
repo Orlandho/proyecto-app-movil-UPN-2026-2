@@ -2,18 +2,14 @@ package com.example.foodjeetapp.data.remote
 
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * Servidores contra los que puede trabajar la app.
+ * Dos formas de acceder al mismo backend Node.js + MySQL de este repositorio (backend/).
+ * No existen destinos de producción, Docker/Caddy ni servidores configurables externos.
  *
- * Incluye el backend local en Node.js + MySQL (puerto 3000),
- * los contenedores de Docker (puerto 8081 con proxy Caddy)
- * y el entorno de producción (Cloudflare).
- *
- * - [apiUrl]: base de Retrofit.
- * - [webOrigen]: desde donde se descargan los estáticos que da la API con
- *   ruta relativa (`/img/qr/...`).
- * - [origenMapa]: origen con el que se carga la página del mapa.
+ * 10.0.2.2 es el alias del host para el emulador Android.
+ * localhost requiere adb reverse tcp:3000 tcp:3000 en un teléfono físico por USB.
  */
 enum class ServidorFoodJet(
     val etiqueta: String,
@@ -23,58 +19,46 @@ enum class ServidorFoodJet(
     val origenMapa: String
 ) {
     NODE_LOCAL_EMULADOR(
-        etiqueta = "Backend MySQL · Emulador (3000)",
-        descripcion = "Node.js local en este PC (10.0.2.2:3000)",
+        etiqueta = "Backend del repositorio · Emulador",
+        descripcion = "Node.js en este PC (10.0.2.2:3000)",
         apiUrl = "http://10.0.2.2:3000/api/",
         webOrigen = "http://10.0.2.2:3000/",
-        origenMapa = "http://localhost:8081/"
+        origenMapa = "http://10.0.2.2:3000/"
     ),
     NODE_LOCAL_USB(
-        etiqueta = "Backend MySQL · Celular USB (3000)",
-        descripcion = "Node.js local en este PC con «adb reverse tcp:3000 tcp:3000»",
+        etiqueta = "Backend del repositorio · Celular USB",
+        descripcion = "Node.js en este PC con adb reverse tcp:3000 tcp:3000",
         apiUrl = "http://localhost:3000/api/",
         webOrigen = "http://localhost:3000/",
-        origenMapa = "http://localhost:8081/"
-    ),
-    PRODUCCION(
-        etiqueta = "Producción",
-        descripcion = "foodjet.asen.pe (túnel de Cloudflare)",
-        apiUrl = "https://foodjet.asen.pe/api/",
-        webOrigen = "https://foodjet.asen.pe/",
-        origenMapa = "https://foodjet.asen.pe/"
-    ),
-    LOCAL_EMULADOR(
-        etiqueta = "Docker Caddy · Emulador (8081)",
-        descripcion = "Docker en este PC, visto desde el emulador (10.0.2.2:8081)",
-        apiUrl = "http://10.0.2.2:8081/api/",
-        webOrigen = "http://10.0.2.2:8081/",
-        origenMapa = "http://localhost:8081/"
-    ),
-    LOCAL_USB(
-        etiqueta = "Docker Caddy · Celular por USB (8081)",
-        descripcion = "Docker en este PC con «adb reverse tcp:8081 tcp:8081»",
-        apiUrl = "http://localhost:8081/api/",
-        webOrigen = "http://localhost:8081/",
-        origenMapa = "http://localhost:8081/"
+        origenMapa = "http://localhost:3000/"
     );
 
     val apiHttpUrl: HttpUrl get() = apiUrl.toHttpUrl()
 
-    /** URL absoluta de un recurso que la API da con ruta relativa, o null. */
+    /** Resuelve recursos del backend local, sin abrir URLs de servidores externos. */
     fun recurso(ruta: String?): String? {
         val limpia = ruta?.trim().orEmpty()
-        if (limpia.isEmpty()) return null
-        if (limpia.startsWith("http://") || limpia.startsWith("https://")) return limpia
-        return webOrigen.trimEnd('/') + "/" + limpia.trimStart('/')
+        if (limpia.isEmpty() || '\\' in limpia) return null
+        val absoluta = limpia.toHttpUrlOrNull()
+        if (absoluta != null) {
+            val local = apiHttpUrl
+            return if (absoluta.scheme == local.scheme &&
+                absoluta.host == local.host && absoluta.port == local.port
+            ) limpia else null
+        }
+        if (limpia.contains("://") || limpia.startsWith("//")) return null
+        val path = limpia.trimStart('/')
+        if (path.isBlank() || path.split('/').any { it == "." || it == ".." }) return null
+        return webOrigen.trimEnd('/') + "/" + path
     }
 
     companion object {
         val PREDETERMINADO = NODE_LOCAL_EMULADOR
 
+        /** Migra configuraciones previas sin permitir reconectarse a Docker o producción. */
         fun desdeNombre(nombre: String?): ServidorFoodJet = when (nombre) {
-            "NODE_LOCAL_EMULADOR", "BACKEND_LOCAL_EMULADOR" -> NODE_LOCAL_EMULADOR
-            "NODE_LOCAL_USB", "BACKEND_LOCAL_USB" -> NODE_LOCAL_USB
-            else -> entries.firstOrNull { it.name == nombre } ?: PREDETERMINADO
+            "NODE_LOCAL_USB", "BACKEND_LOCAL_USB", "LOCAL_USB" -> NODE_LOCAL_USB
+            else -> NODE_LOCAL_EMULADOR
         }
     }
 }

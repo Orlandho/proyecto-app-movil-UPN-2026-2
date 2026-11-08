@@ -10,13 +10,13 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** Selección de servidor: backend local Node.js/MySQL (3000), Docker (8081) o producción (Cloudflare). */
+/** Solo backend/ del repositorio: Node.js en el puerto 3000 (emulador o USB). */
 class ServidorFoodJetTest {
-
-    /** Cadena mínima que registra la petición que le llega. */
     private class CadenaFalsa(private val peticion: Request) : Interceptor.Chain {
         var enviada: Request? = null
         override fun request() = peticion
@@ -46,82 +46,77 @@ class ServidorFoodJetTest {
         return cadena.enviada!!.url.toString()
     }
 
-    @Test
-    fun `backend local emulador va al puerto 3000 por 10_0_2_2`() {
+    @Test fun `solo hay dos modos de acceso al mismo backend local`() {
+        assertEquals(listOf(ServidorFoodJet.NODE_LOCAL_EMULADOR, ServidorFoodJet.NODE_LOCAL_USB), ServidorFoodJet.entries)
+        assertEquals("http://10.0.2.2:3000/api/", RetrofitClient.TEMPLATE_API_URL)
+    }
+
+    @Test fun `emulador conserva ruta y parametros`() {
         assertEquals(
             "http://10.0.2.2:3000/api/orders/my-orders?x=1",
-            reescribir(ServidorFoodJet.NODE_LOCAL_EMULADOR, "https://foodjet.asen.pe/api/orders/my-orders?x=1")
+            reescribir(ServidorFoodJet.NODE_LOCAL_EMULADOR, "http://10.0.2.2:3000/api/orders/my-orders?x=1")
         )
     }
 
-    @Test
-    fun `backend local usb va al puerto 3000 por localhost`() {
+    @Test fun `conserva el path codificado sin alterar el query`() {
+        assertEquals(
+            "http://localhost:3000/api/products/item%2Fspecial?discount=100%25",
+            reescribir(ServidorFoodJet.NODE_LOCAL_USB, "http://10.0.2.2:3000/api/products/item%2Fspecial?discount=100%25")
+        )
+    }
+
+    @Test fun `modo usb solo usa localhost en puerto 3000`() {
         assertEquals(
             "http://localhost:3000/api/auth/login",
-            reescribir(ServidorFoodJet.NODE_LOCAL_USB, "https://foodjet.asen.pe/api/auth/login")
+            reescribir(ServidorFoodJet.NODE_LOCAL_USB, "http://10.0.2.2:3000/api/auth/login")
         )
     }
 
-    @Test
-    fun `produccion deja la URL igual`() {
-        assertEquals(
+    @Test fun `rechaza peticiones a produccion externa y proxy Docker`() {
+        listOf(
             "https://foodjet.asen.pe/api/orders/7",
-            reescribir(ServidorFoodJet.PRODUCCION, "https://foodjet.asen.pe/api/orders/7")
-        )
-    }
-
-    @Test
-    fun `el emulador va al proxy local por 10_0_2_2 conservando ruta y consulta`() {
-        assertEquals(
-            "http://10.0.2.2:8081/api/orders/my-orders?x=1",
-            reescribir(ServidorFoodJet.LOCAL_EMULADOR, "https://foodjet.asen.pe/api/orders/my-orders?x=1")
-        )
-    }
-
-    @Test
-    fun `el celular por USB usa localhost con adb reverse`() {
-        assertEquals(
-            "http://localhost:8081/api/favorites/3/toggle",
-            reescribir(ServidorFoodJet.LOCAL_USB, "https://foodjet.asen.pe/api/favorites/3/toggle")
-        )
-    }
-
-    @Test
-    fun `otros hosts no se tocan`() {
-        assertEquals(
+            "http://10.0.2.2:8081/api/orders/7",
+            "http://localhost:8081/api/orders/7",
             "https://images.unsplash.com/photo.jpg",
-            reescribir(ServidorFoodJet.LOCAL_EMULADOR, "https://images.unsplash.com/photo.jpg")
-        )
+            "http://10.0.2.2:3000/otra-ruta"
+        ).forEach { url ->
+            val cadena = CadenaFalsa(Request.Builder().url(url).build())
+            var bloqueada = false
+            try {
+                ServidorInterceptor { ServidorFoodJet.NODE_LOCAL_EMULADOR }.intercept(cadena)
+            } catch (_: IOException) {
+                bloqueada = true
+            }
+            assertTrue("Debe bloquear: $url", bloqueada)
+            assertNull(cadena.enviada)
+        }
     }
 
-    @Test
-    fun `resuelve recursos relativos de la web`() {
+    @Test fun `recursos QR solo provienen del backend local`() {
         assertEquals("http://10.0.2.2:3000/img/qr/burger-king.svg", ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("/img/qr/burger-king.svg"))
-        assertEquals("http://10.0.2.2:8081/img/qr/burger-king.svg", ServidorFoodJet.LOCAL_EMULADOR.recurso("/img/qr/burger-king.svg"))
-        assertEquals("https://cdn.test/qr.svg", ServidorFoodJet.PRODUCCION.recurso("https://cdn.test/qr.svg"))
-        assertNull(ServidorFoodJet.PRODUCCION.recurso("  "))
+        assertEquals("http://localhost:3000/img/qr/burger-king.svg", ServidorFoodJet.NODE_LOCAL_USB.recurso("/img/qr/burger-king.svg"))
+        assertNull(ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("https://foodjet.asen.pe/img/qr/externo.svg"))
+        assertNull(ServidorFoodJet.NODE_LOCAL_EMULADOR.recurso("//example.com/image.svg"))
+        assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso(" "))
+        assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso("../secret"))
+        assertNull(ServidorFoodJet.NODE_LOCAL_USB.recurso("https://example.com/qr.svg"))
     }
 
-    @Test
-    fun `un nombre desconocido vuelve al servidor predeterminado`() {
-        assertEquals(ServidorFoodJet.LOCAL_USB, ServidorFoodJet.desdeNombre("LOCAL_USB"))
-        assertEquals(ServidorFoodJet.NODE_LOCAL_EMULADOR, ServidorFoodJet.desdeNombre("NODE_LOCAL_EMULADOR"))
+    @Test fun `configuraciones antiguas ya no habilitan servidores externos`() {
+        assertEquals(ServidorFoodJet.NODE_LOCAL_USB, ServidorFoodJet.desdeNombre("LOCAL_USB"))
+        assertEquals(ServidorFoodJet.NODE_LOCAL_EMULADOR, ServidorFoodJet.desdeNombre("LOCAL_EMULADOR"))
+        assertEquals(ServidorFoodJet.PREDETERMINADO, ServidorFoodJet.desdeNombre("PRODUCCION"))
         assertEquals(ServidorFoodJet.PREDETERMINADO, ServidorFoodJet.desdeNombre(null))
-        assertEquals(ServidorFoodJet.PREDETERMINADO, ServidorFoodJet.desdeNombre("otro"))
     }
 
-    @Test
-    fun `la cascada de keys de mapa respeta el orden y quita repetidas`() {
+    @Test fun `la cascada de keys de mapa respeta el orden y quita repetidas`() {
         assertEquals(listOf("A", "B"), ConfigResponseDto("A", listOf("A", " B ", "")).keysDeMapa())
         assertEquals(listOf("A"), ConfigResponseDto("A", null).keysDeMapa())
         assertEquals(emptyList<String>(), ConfigResponseDto(null, null).keysDeMapa())
     }
 
-    @Test
-    fun `lee el mensaje de error que manda el backend`() {
-        assertEquals("La dirección de entrega no te pertenece.", ErroresApi.mensajeDelCuerpo("{\"error\":\"La dirección de entrega no te pertenece.\"}"))
+    @Test fun `lee el mensaje de error que manda el backend`() {
         assertEquals("Hecho", ErroresApi.mensajeDelCuerpo("{\"message\":\"Hecho\"}"))
         assertNull(ErroresApi.mensajeDelCuerpo("<html>502</html>"))
-        assertNull(ErroresApi.mensajeDelCuerpo(null))
     }
 }

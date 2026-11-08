@@ -841,13 +841,11 @@ class Tier2BoundaryAndCornerTest {
     }
 
     @Test
-    fun test_f19_b04_server_selector_contains_all_environments() {
+    fun test_f19_b04_server_selector_only_local_backend() {
         val servers = ServidorFoodJet.values()
         assertTrue(servers.any { it.name == "NODE_LOCAL_EMULADOR" })
         assertTrue(servers.any { it.name == "NODE_LOCAL_USB" })
-        assertTrue(servers.any { it.name == "PRODUCCION" })
-        assertTrue(servers.any { it.name == "LOCAL_EMULADOR" })
-        assertTrue(servers.any { it.name == "LOCAL_USB" })
+        assertEquals(2, servers.size)
     }
 
     @Test
@@ -1024,23 +1022,23 @@ class Tier2BoundaryAndCornerTest {
 
     @Test
     fun test_f24_b01_server_resource_url_relative_path_resolution() {
-        val server = ServidorFoodJet.PRODUCCION
+        val server = ServidorFoodJet.NODE_LOCAL_EMULADOR
         val relative = "/img/qr/yape.png"
         val fullUrl = server.recurso(relative)
-        assertEquals("https://foodjet.asen.pe/img/qr/yape.png", fullUrl)
+        assertEquals("http://10.0.2.2:3000/img/qr/yape.png", fullUrl)
     }
 
     @Test
     fun test_f24_b02_server_resource_url_absolute_path_unchanged() {
-        val server = ServidorFoodJet.PRODUCCION
+        val server = ServidorFoodJet.NODE_LOCAL_EMULADOR
         val absolute = "https://cdn.example.com/logo.png"
         val fullUrl = server.recurso(absolute)
-        assertEquals(absolute, fullUrl)
+        assertNull(fullUrl)
     }
 
     @Test
     fun test_f24_b03_server_resource_url_null_input_returns_null() {
-        val server = ServidorFoodJet.PRODUCCION
+        val server = ServidorFoodJet.NODE_LOCAL_EMULADOR
         assertNull(server.recurso(null))
         assertNull(server.recurso(""))
         assertNull(server.recurso("   "))

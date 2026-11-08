@@ -509,7 +509,7 @@ private fun ImagenRemota(url: String, descripcion: String, onCargada: () -> Unit
     )
 }
 
-/** Elige contra qué servidor trabaja la app. Se guarda con DataStore. */
+/** Solo permite elegir el acceso al backend/ de este repositorio: emulador o USB. */
 @Composable
 fun SelectorServidor(
     servidor: ServidorFoodJet,
@@ -520,7 +520,7 @@ fun SelectorServidor(
         TextButton(onClick = { abierto = !abierto }, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Servidor: ${servidor.etiqueta}", fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("Conexión local: ${servidor.etiqueta}", fontSize = 12.sp, modifier = Modifier.weight(1f))
             Icon(if (abierto) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
         }
         if (abierto) {
@@ -539,7 +539,7 @@ fun SelectorServidor(
                 }
             }
             Text(
-                "Cambiar de servidor cierra la sesión.",
+                "Ambas opciones usan el mismo backend y conservan tu sesión.",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp)
@@ -556,7 +556,6 @@ fun MiCuentaDialog(
     isAdmin: Boolean = false,
     servidor: ServidorFoodJet,
     onCambiarServidor: (ServidorFoodJet) -> Unit,
-    onAbrirWeb: () -> Unit,
     onVerifyStudent: () -> Unit,
     onOpenAdminDashboard: () -> Unit = {},
     onLogout: () -> Unit,
@@ -652,13 +651,6 @@ fun MiCuentaDialog(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-                // Intent implícito: lo abre el navegador que tenga el teléfono.
-                TextButton(onClick = onAbrirWeb, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Abrir FoodJet en el navegador")
-                }
-
                 SelectorServidor(servidor = servidor, onCambiar = onCambiarServidor)
 
                 Spacer(modifier = Modifier.height(12.dp))

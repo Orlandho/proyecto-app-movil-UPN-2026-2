@@ -221,18 +221,14 @@ class Tier4RealWorldScenariosTest {
         assertEquals(OrderStatus.ENTREGADO, currentStatus)
     }
 
-    // Scenario 12: Server Selector Environment Switching
+    // Scenario 12: Two transports to the local repository backend
     @Test
     fun test_scenario_12_server_selector_environment_switching() {
         var currentServer = ServidorFoodJet.PREDETERMINADO
         assertEquals("http://10.0.2.2:3000/api/", currentServer.apiUrl)
 
-        // Switch to production
-        currentServer = ServidorFoodJet.PRODUCCION
-        assertEquals("https://foodjet.asen.pe/api/", currentServer.apiUrl)
-
-        // Switch to Docker USB
-        currentServer = ServidorFoodJet.LOCAL_USB
-        assertEquals("http://localhost:8081/api/", currentServer.apiUrl)
+        // The only alternative is access to the SAME Node.js backend over adb reverse.
+        currentServer = ServidorFoodJet.NODE_LOCAL_USB
+        assertEquals("http://localhost:3000/api/", currentServer.apiUrl)
     }
 }

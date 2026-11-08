@@ -117,7 +117,7 @@ class UserRepositoryImpl(
             Result.failure(
                 Exception(
                     "No se pudo conectar con el servidor ($servidorActual): $causa. " +
-                    "Asegúrate de que el backend esté ejecutándose o cambia de servidor en la pantalla de inicio."
+                    "Comprueba que backend/ esté ejecutándose y elige el modo local correcto (emulador o USB)."
                 )
             )
         }

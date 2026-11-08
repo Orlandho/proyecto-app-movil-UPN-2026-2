@@ -5,29 +5,21 @@ import android.content.pm.ApplicationInfo
 import com.example.foodjeetapp.data.local.SessionDataStore
 import com.example.foodjeetapp.data.remote.api.FoodJetApiService
 import com.example.foodjeetapp.data.remote.interceptor.AuthInterceptor
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Cliente HTTP centralizado y constructor de Retrofit.
- * Cumple con REQ-SEM08-LOG-01, REQ-SEM07-INF-01 y REQ-SEM08-INF-01.
- *
- * Retrofit se construye con la URL canónica de plantilla; el servidor
- * activo lo decide [ServidorInterceptor] dinámicamente en cada petición,
- * permitiendo conmutar entre el backend Node.js (MySQL), Docker o Cloudflare
- * en caliente sin reiniciar la app.
+ * Cliente Retrofit exclusivo para backend/ del mismo repositorio, puerto 3000.
+ * Solo alterna entre la ruta de emulador Android y la ruta USB (adb reverse).
  */
 object RetrofitClient {
+    const val TEMPLATE_API_URL = "http://10.0.2.2:3000/api/"
 
-    const val TEMPLATE_API_URL = "https://foodjet.asen.pe/api/"
-
-    /** Servidor activo. Lo fija [com.example.foodjeetapp.data.di.ServiceLocator] al arrancar. */
     @Volatile
     var servidor: ServidorFoodJet = ServidorFoodJet.PREDETERMINADO
 
@@ -58,6 +50,9 @@ object RetrofitClient {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            // Evita seguir redirecciones hacia otra API y enviar datos a hosts externos.
+            .followRedirects(false)
+            .followSslRedirects(false)
             .addInterceptor(ServidorInterceptor(servidorActual))
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
@@ -73,41 +68,30 @@ object RetrofitClient {
     }
 }
 
-/**
- * Reescribe esquema, host, puerto y prefijo de cada petición hacia el
- * servidor elegido, conservando la ruta relativa a `/api/` y los query params.
- */
+/** Reencamina solo peticiones /api del backend local; rechaza otros orígenes. */
 class ServidorInterceptor(
     private val servidorActual: () -> ServidorFoodJet
 ) : Interceptor {
-
-    private val baseTemplate: HttpUrl = RetrofitClient.TEMPLATE_API_URL.toHttpUrl()
-
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val original = chain.request()
-        val hostsPermitidos = ServidorFoodJet.entries.map { it.apiHttpUrl.host }.toSet() + baseTemplate.host
-        if (original.url.host !in hostsPermitidos) return chain.proceed(original)
+        val origen = original.url
 
-        val destino = servidorActual().apiHttpUrl
-        val segmentos = original.url.pathSegments.filter { it.isNotEmpty() }
-        val idxApi = segmentos.indexOf("api")
-        val relativos = if (idxApi != -1) {
-            segmentos.drop(idxApi + 1)
-        } else {
-            val prefijoBase = baseTemplate.pathSegments.filter { it.isNotEmpty() }
-            original.url.pathSegments.drop(prefijoBase.size)
+        val origenPermitido = ServidorFoodJet.entries.any { local ->
+            val url = local.apiHttpUrl
+            origen.scheme == url.scheme && origen.host == url.host && origen.port == url.port
+        }
+        if (!origenPermitido || origen.pathSegments.firstOrNull() != "api") {
+            throw IOException("Solo se permiten peticiones a la API local de FoodJet (puerto 3000)")
         }
 
-        val url = original.url.newBuilder()
+        val destino = servidorActual().apiHttpUrl
+        // Conserva exactamente el encodedPath y los query params de la petición.
+        val url = origen.newBuilder()
             .scheme(destino.scheme)
             .host(destino.host)
             .port(destino.port)
-            .encodedPath("/")
-            .apply {
-                destino.pathSegments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) }
-                relativos.forEach { addPathSegment(it) }
-            }
             .build()
+
         return chain.proceed(original.newBuilder().url(url).build())
     }
 }

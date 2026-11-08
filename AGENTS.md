@@ -2,13 +2,13 @@
 
 ## Contexto de Integración del Ecosistema FoodJet
 
-Este repositorio (`Orlandho/proyecto-app-movil-UPN-2026-2`) constituye el cliente móvil oficial Android (Kotlin) del sistema **FoodJet**, cuyo repositorio central de backend y aplicación web es [`Orlandho/Pagina-Foodjet`](https://github.com/Orlandho/Pagina-Foodjet).
+Este repositorio (`Orlandho/proyecto-app-movil-UPN-2026-2`) contiene tanto el cliente Android Kotlin (`app-movil/`) como su backend oficial Node.js + Express + Prisma + MySQL (`backend/`).
 
-La aplicación móvil está diseñada para operar de forma complementaria y coordinada con la plataforma web, garantizando una experiencia omnicanal fluida para clientes y administradores.
+La aplicación móvil consume exclusivamente el backend de su mismo repositorio; no mantiene una dependencia funcional de otros proyectos web o servidores de negocio.
 
 ### 1. Consumo del Backend de FoodJet
-La aplicación móvil Kotlin debe consumir la API REST del backend de FoodJet (Node.js con Express, Prisma ORM y base de datos relacional PostgreSQL):
-- **Base URL:** Se elige en la app (Mi cuenta o Iniciar sesión → Servidor) y se guarda con DataStore; las opciones están en [`ServidorFoodJet`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/ServidorFoodJet.kt) y [`RetrofitClient`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt) la aplica a cada petición: producción por el túnel de Cloudflare `https://foodjet.asen.pe/api/` (predeterminada), el Docker local desde el emulador `http://10.0.2.2:8081/api/`, o desde un celular por USB `http://localhost:8081/api/` con `adb reverse tcp:8081 tcp:8081`. Siempre se usa el proxy Caddy (8081) y no la API directa del 3000, porque el proxy sirve también los estáticos de la web, como los QR de pago. Guía en [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md).
+La aplicación móvil Kotlin debe consumir la API REST del backend de FoodJet (Node.js con Express, Prisma ORM y base de datos relacional MySQL):
+- **Backend único permitido:** La app Android consume exclusivamente la API Node.js + MySQL de `backend/` (este repositorio) en el puerto 3000. `ServidorFoodJet` solo admite `NODE_LOCAL_EMULADOR` (`http://10.0.2.2:3000/api/`) y `NODE_LOCAL_USB` (`http://localhost:3000/api/` mediante `adb reverse tcp:3000 tcp:3000`). No reintroducir el backend de producción, Docker/Caddy 8081, proxy externo, alternativas en UI ni URLs de otros backends. `RetrofitClient` rechaza destinos distintos de los dos orígenes locales. Guía: [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md).
 - **Autenticación y Seguridad:** El backend gestiona sesiones mediante tokens JWT. La app móvil almacena el token en [`SessionDataStore`](app-movil/app/src/main/java/com/example/foodjeetapp/data/local/SessionDataStore.kt) y lo adjunta automáticamente en cada petición mediante [`AuthInterceptor`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/AuthInterceptor.kt) (`Authorization: Bearer <token>`).
 - **Servicios de Red y Endpoints:** Definidos en la interfaz suspendida [`FoodJetApiService`](app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/api/FoodJetApiService.kt):
   - Autenticación: `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me`.
@@ -19,7 +19,7 @@ La aplicación móvil Kotlin debe consumir la API REST del backend de FoodJet (N
 - **Caché y Persistencia Local:** Sincronización offline-first combinando Retrofit con la base de datos Room [`FoodJetDatabase`](app-movil/app/src/main/java/com/example/foodjeetapp/data/local/FoodJetDatabase.kt) para navegación ininterrumpida aun sin conectividad.
 
 ### 2. Paridad Visual y Paleta Cromática del Frontend Web
-La aplicación móvil implementa Material Design 3 con Jetpack Compose y debe reflejar con máxima fidelidad la identidad visual, componentes y paleta cromática del frontend web de FoodJet (`Pagina-Foodjet/frontend/styles.css`):
+La aplicación móvil implementa Material Design 3 con Jetpack Compose y conserva la identidad visual y los tokens de estilo definidos en este repositorio:
 - **Paleta Cromática de Marca (definida en [`Color.kt`](app-movil/app/src/main/java/com/example/foodjeetapp/ui/theme/Color.kt)):**
   - `FoodJetPrimary`: `#F5AF69` (Naranja apetitoso insignia de FoodJet).
   - `FoodJetPrimaryDark`: `#F39D4A` (Variante de énfasis y pulsación).
@@ -44,130 +44,27 @@ La aplicación móvil implementa Material Design 3 con Jetpack Compose y debe re
 
 ---
 
-## Guía de Arquitectura y Delimitación de Carpetas para el Agente Jules
+## Arquitectura y reglas para agentes de desarrollo
 
-Para asegurar modificaciones precisas, limpias y libres de efectos secundarios, el agente autónomo **Jules** debe regirse por la siguiente delimitación de responsabilidades dentro del módulo `app`.
-- **Archivo Fuente Mermaid:** [`mermaid diagramas/07_orquestacion_agente_jules_sincronizacion.mmd`](mermaid%20diagramas/07_orquestacion_agente_jules_sincronizacion.mmd)
-- **Vector SVG de Alta Resolución:** [`mermaid diagramas/07_orquestacion_agente_jules_sincronizacion.svg`](mermaid%20diagramas/07_orquestacion_agente_jules_sincronizacion.svg)
+Los cambios deben basarse en el código de este repositorio, no en ejemplos históricos ni en un repositorio externo. Los directorios principales son `app-movil/app/src/main/java/com/example/foodjeetapp/` y `backend/`.
 
-```mermaid
-flowchart TD
-    subgraph EventoExterno ["Disparador Externo"]
-        WebRepo["Repositorio Orlandho/Pagina-Foodjet"] -- "repository_dispatch\n(tipo: foodjet-updated)" --> GHWorkflow[".github/workflows/receive-foodjet-sync.yml"]
-    end
+- UI: `ui/screens/` y `ui/components/`; estado: `ui/viewmodel/`.
+- API REST y JWT: `data/remote/`; repositorios: `data/repository/`.
+- Persistencia local: `data/local/` (`Room`, `DataStore`).
+- Backend exclusivo: `backend/` (`Node.js`, `Express`, `Prisma`, `MySQL`).
+- No reintroducir entornos de producción, Caddy/Docker 8081 ni URLs de otro backend en Android; mantener los dos modos locales del puerto 3000.
+- No ejecutar un fallback de la API a otro host si el backend local está caído.
+- No eliminar integraciones cartográficas externas legítimas (Google Maps) o imágenes de terceros por confundirlas con un backend de negocio.
+- Mantener intactas las versiones y dependencias de Gradle salvo cambio explícitamente aprobado: `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml` y `app-movil/app/build.gradle.kts`.
+- Mantener los contratos, DTO, navegación y pruebas de regresión durante modificaciones de conectividad.
 
-    subgraph OrquestacionJules ["Orquestación Jules"]
-        GHWorkflow --> GHIssue["Creación de Issue GitHub\n(Etiqueta: jules)"]
-        GHWorkflow -.-> DirectAPI["Invocación API\n(JULES_API_KEY)"]
-        GHIssue --> JulesSession["Sesión de Trabajo de Jules\n(Lectura de AGENTS.md)"]
-    end
+## Sincronización con otros repositorios
 
-    subgraph ModuloAppKotlin ["Módulo app (Áreas Permitidas para Jules)"]
-        JulesSession --> UIViews["Vistas y UI Jetpack Compose\n(ui/screens/ & ui/components/)"]
-        JulesSession --> UIViewModels["Lógica de Estado MVVM\n(ui/viewmodel/)"]
-        JulesSession --> UINetwork["Servicios de Red y Repositorios\n(data/remote/ & data/repository/)"]
-    end
+La recepción automática de cambios de `Pagina-Foodjet` mediante `receive-foodjet-sync.yml` se ha retirado. El cliente móvil no debe generar tareas para sincronizar su API con backends de otros repositorios. Cualquier modificación del contrato se revisa contra `backend/src/` de este mismo repositorio mediante Pull Requests.
 
-    subgraph Protegido ["Zona Protegida (PROHIBIDO MODIFICAR)"]
-        GradleBase["Estructura Gradle Base\n(build.gradle.kts, libs.versions.toml)"]
-    end
-
-    JulesSession -. "Restricción Estricta" .-> GradleBase
-```
-
-### 1. Carpetas de Modificación Permitidas para Jules
-El agente Jules debe enfocar sus intervenciones exclusivamente en las siguientes rutas según la naturaleza del cambio:
-
-1. **Capa Visual y Experiencia de Usuario (UI):**
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/screens/`: Pantallas completas de la aplicación (`HomeScreen.kt`, `CheckoutScreen.kt`, `CartSheet.kt`, `FavoritesScreen.kt`, `OrderHistoryScreen.kt`, `TrackingScreen.kt`, `AdminDashboardScreen.kt`, `Modals.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/components/`: Componentes composables reutilizables (`ProductCard.kt`, `HeroCarousel.kt`, `FilterSection.kt`, `FoodJetTopBar.kt`, `FoodJetBottomBar.kt`, `FeatureBadgesRow.kt`, `StarRatingBar.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/theme/`: Definición de tema (`Color.kt`, `Theme.kt`, `Type.kt`).
-
-2. **Capa de Lógica de Negocio y Presentación (ViewModels):**
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/ui/viewmodel/`: Clases ViewModel responsables de exponer el estado inmutable `StateFlow` hacia las vistas (`HomeViewModel.kt`, `CartViewModel.kt`, `OrderViewModel.kt`, `AuthViewModel.kt`).
-
-3. **Capa de Servicios de Red, DTOs y Repositorios:**
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/api/`: Definición de contratos Retrofit (`FoodJetApiService.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/dto/`: Clases de transferencia de datos inmutables (`ProductDtos.kt`, `OrderDtos.kt`, `AuthDtos.kt`, `AddressDtos.kt`, `ReviewDtos.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/interceptor/`: Interceptores de red (`AuthInterceptor.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/remote/RetrofitClient.kt`: Cliente OkHttp y Retrofit.
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/repository/`: Implementaciones de repositorio como única fuente de verdad (`ProductRepository.kt`, `OrderRepository.kt`, `UserRepository.kt`).
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/model/`: Modelos de dominio de la aplicación (`FoodJetModels.kt`).
-
-4. **Capa de Persistencia Local (Referencia):**
-   - `app-movil/app/src/main/java/com/example/foodjeetapp/data/local/`: Base de datos Room (`FoodJetDatabase.kt`), DAO (`dao/ProductDao.kt`), entidades (`entity/ProductEntity.kt`) y almacenamiento de preferencias (`SessionDataStore.kt`).
-
-### 2. REGLA ESTRICTA: Preservación de la Estructura Gradle Base
-El agente Jules tiene **ESTRICTAMENTE PROHIBIDO MODIFICAR** los archivos de infraestructura y configuración del sistema de compilación Gradle:
-- `build.gradle.kts` (raíz del proyecto)
-- `settings.gradle.kts`
-- `gradle.properties`
-- `gradle/libs.versions.toml`
-- `app-movil/app/build.gradle.kts`
-
-**Justificación técnica:** La versión del Android Gradle Plugin (AGP 8.9), la versión de Kotlin (2.1), la toolchain de JVM (Java 21) y el compilador de Compose (`libs.plugins.kotlin.compose`) están estrictamente alineados y validados para compatibilidad con la suite de pruebas móviles. Cualquier modificación no supervisada en las versiones o plugins puede romper la integración continua. Toda tarea de alineación debe resolverse mediante código fuente Kotlin y Jetpack Compose dentro de los paquetes habilitados.
+Guías vigentes: [`docs/PRUEBA_CON_BACKEND_LOCAL.md`](docs/PRUEBA_CON_BACKEND_LOCAL.md) y [`docs/INTEGRACION_BACKEND_FOODJET.md`](docs/INTEGRACION_BACKEND_FOODJET.md). Los diagramas de orquestación antiguos son solo material histórico.
 
 ---
-
-## Orquestación del Agente Jules y Flujo de Eventos Externos
-
-### Protocolo de Comunicación
-- **Evento Disparador:** `repository_dispatch`
-- **Tipo de Evento:** `foodjet-updated`
-- **Repositorio Origen (Emisor):** [`Orlandho/Pagina-Foodjet`](https://github.com/Orlandho/Pagina-Foodjet)
-- **Repositorio Destino (Receptor):** [`Orlandho/proyecto-app-movil-UPN-2026-2`](https://github.com/Orlandho/proyecto-app-movil-UPN-2026-2)
-- **Flujo Receptor:** [`.github/workflows/receive-foodjet-sync.yml`](.github/workflows/receive-foodjet-sync.yml)
-- **Mecanismo de Despacho:**
-  1. Al recibir el evento `foodjet-updated`, el flujo crea automáticamente un Issue en GitHub asignado al agente Jules mediante la etiqueta `jules` usando GitHub CLI.
-  2. Si el secreto `JULES_API_KEY` está configurado en el repositorio, se genera además un análisis preliminar y plan de trabajo directo mediante la API de Jules/Gemini, adjuntándolo como comentario en el issue.
-  3. El agente Jules toma el issue, examina los commits y diferencias recientes en `Orlandho/Pagina-Foodjet`, implementa los ajustes requeridos en las vistas, ViewModels o servicios de red de la app Kotlin, y somete los cambios a través de un Pull Request para revisión.
-
-
----
-
-## Auditoría en Sandbox Virtual de Google Jules y Status Checks Vinculantes
-
-Para garantizar que ningún cambio sea integrado a la rama `main` sin superar una evaluación rigurosa tanto determinista como agéntica, el repositorio implementa una arquitectura híbrida de **5 Status Checks Obligatorios** respaldados por el Ruleset de GitHub (`id: 22495789`):
-
-- **Archivo Fuente Mermaid:** [`mermaid diagramas/09_arquitectura_integracion_google_jules_sandbox.mmd`](mermaid%20diagramas/09_arquitectura_integracion_google_jules_sandbox.mmd)
-- **Vector SVG de Alta Resolución:** [`mermaid diagramas/09_arquitectura_integracion_google_jules_sandbox.svg`](mermaid%20diagramas/09_arquitectura_integracion_google_jules_sandbox.svg)
-
-```mermaid
-flowchart TD
-    PR["Pull Request hacia 'main'"] --> FastCI["Capa 1: CI Rápido (Actions - 60s)\n1. Estático | 2. Unitario | 3. Funcional | 4. Regresión"]
-    PR --> JulesAudit["Capa 2: Sandbox de Jules (jules.google.com)\n5. Veredicto de Auditoría en Sandbox de Jules"]
-    FastCI & JulesAudit --> RulesetCheck{"¿Los 5 Status Checks\nestán en verde (SUCCESS)?"}
-    RulesetCheck -- "Sí" --> MergeAllowed["Fusión Permitida (Squash & Merge)"]
-    RulesetCheck -- "No" --> MergeBlocked["Fusión Bloqueada (HTTP 405 Method Not Allowed)"]
-```
-
-### 1. Los 5 Status Checks Requeridos en GitHub
-1. `Análisis Estático de App Móvil con Jules`: Compilación Kotlin y escaneo de vulnerabilidades OWASP Mobile.
-2. `Pruebas Unitarias y Cobertura de Ramas Móvil con Jules`: Ejecución de JUnit en la JVM con reportes XML.
-3. `Pruebas Funcionales y Contratos Móviles con Jules`: Verificación de contratos Retrofit, cálculo de IGV 18% y costos fijos de envío.
-4. `Pruebas de Regresión y Estabilidad Móvil con Jules`: Estabilidad de modelos de dominio y compatibilidad hacia atrás.
-5. `Veredicto de Auditoría en Sandbox de Jules`: Evaluación autónoma ejecutada por el agente Jules en su contenedor en la nube ([`jules.google.com/session`](https://jules.google.com/session)).
-
-### 2. Flujo de Despacho y Procesamiento del Veredicto
-- **Despachador ([`.github/workflows/jules-sandbox-audit.yml`](.github/workflows/jules-sandbox-audit.yml)):**
-  - Al abrirse o actualizarse un PR, marca `Veredicto de Auditoría en Sandbox de Jules` en estado `PENDING (🟡)`.
-  - Crea un Issue en GitHub con la etiqueta `jules` y metadatos estructurados ocultos (`PR_NUMBER`, `COMMIT_SHA`, `BRANCH`).
-  - La GitHub App de Google Jules detecta el Issue y abre una sesión en su máquina virtual en la nube.
-- **Procesador de Veredicto ([`.github/workflows/jules-verdict-listener.yml`](.github/workflows/jules-verdict-listener.yml)):**
-  - Escucha comentarios en el Issue de auditoría emitidos por Jules.
-  - Al detectar `VEREDICTO: APROBADO`, actualiza el Status Check a `SUCCESS (🟢)` y notifica al PR.
-  - Al detectar `VEREDICTO: RECHAZADO`, actualiza a `FAILURE (🔴)` con el reporte de hallazgos y correcciones necesarias.
-
-### 3. Tolerancia a Fallos, Timeouts y Monitoreo Asíncrono
-- **Watchdog de Sondeo Seguro:** El despachador ejecuta un ciclo de sondeo de hasta 10 minutos.
-- **Detección de Fallos Asíncronos:** Si Jules no responde en 10 minutos (por repositorios no autorizados en "Configure repo", límite de cuota diaria de 100 sesiones alcanzado, o caídas de conectividad):
-  - Registra un reporte diagnóstico completo en los logs de GitHub Actions.
-  - Marca el check como `FAILURE (🔴)` para mantener el PR protegido.
-  - Publica en el PR una guía de remediación paso a paso con los enlaces directos a `jules.google.com/session`.
-- **Reintento Manual sin Nuevos Commits:** Basta con agregar la etiqueta `reintentar-jules` al PR o ejecutar el workflow mediante `workflow_dispatch`.
-
----
-
 ## Misión de la Inteligencia Artificial y Requerimientos Semanales
 La inteligencia artificial actuará como desarrollador móvil senior encargado de codificar, refactorizar y verificar cada componente técnico de la aplicación. Su responsabilidad consiste en cumplir rigurosamente los siguientes requerimientos técnicos organizados cronológicamente por semanas y estructurados en tres categorías fundamentales: Capa Visual y Experiencia de Usuario, Lógica de Negocio y Servicios de Arquitectura, y Persistencia, Infraestructura y Configuración. Debe marcar con una equis cada casilla completada de forma verificable en el código fuente.
 
