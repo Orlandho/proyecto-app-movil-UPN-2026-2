@@ -41,7 +41,8 @@ data class LoginResponseDto(
     @SerializedName("accessToken") val accessTokenAlternate: String? = null,
     @SerializedName("user") val user: UserDto? = null
 ) {
-    val effectiveToken: String get() = token ?: accessTokenAlternate ?: "jwt_demo_token"
+    /** El JWT que entregó el backend, o null si la respuesta no trae ninguno. */
+    val effectiveToken: String? get() = token ?: accessTokenAlternate
 }
 
 data class RegisterRequestDto(

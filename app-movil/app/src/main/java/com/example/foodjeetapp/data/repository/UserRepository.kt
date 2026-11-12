@@ -90,8 +90,12 @@ class UserRepositoryImpl(
             val response = apiService.login(LoginRequestDto(email = trimmedEmail, password = password))
             if (response.isSuccessful && response.body() != null) {
                 val data = response.body()!!
-                val user = data.user ?: UserDto(id = 1, nombre = trimmedEmail.substringBefore("@"), email = trimmedEmail)
+                // Sin token o sin usuario no hay sesión real: no se inventa una.
+                val user = data.user
                 val token = data.effectiveToken
+                if (user == null || token.isNullOrBlank()) {
+                    return@withContext Result.failure(Exception("El servidor no devolvió una sesión válida. Intenta de nuevo."))
+                }
                 // Persistir sesión y token JWT en Jetpack DataStore (REQ-SEM05-INF-01)
                 sessionDataStore.saveSession(
                     token = token,

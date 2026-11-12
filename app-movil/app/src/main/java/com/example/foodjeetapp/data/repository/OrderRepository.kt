@@ -141,21 +141,9 @@ class OrderRepositoryImpl(
             val freshOrder = getOrderById(createdId).getOrElse { return@withContext Result.failure(it) }
             getOrders()
             Result.success(freshOrder)
-        } catch (e: Exception) {
-            // Manejo de contingencia offline si el servidor no responde
-            val fallbackId = (1000..9999).random()
-            val simulatedOrder = order.copy(
-                id = "FJ-$fallbackId",
-                fecha = "Ahora",
-                estado = com.example.foodjeetapp.data.model.OrderStatus.CONFIRMADO,
-                direccionEntrega = entrega.direccion,
-                latitudEntrega = entrega.punto?.latitud ?: Geo.LIMA_CENTRO.latitud,
-                longitudEntrega = entrega.punto?.longitud ?: Geo.LIMA_CENTRO.longitud,
-                restauranteNombre = "Burger King",
-                numericId = fallbackId
-            )
-            _ordersFlow.value = listOf(simulatedOrder) + _ordersFlow.value
-            Result.success(simulatedOrder)
+        } catch (e: Exception) {
+            // Sin backend no hay pedido: no se muestra uno inventado como confirmado.
+            Result.failure(Exception(ErroresApi.mensajeDeRed(e, "enviar el pedido"), e))
         }
     }
 

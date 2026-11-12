@@ -13,7 +13,9 @@ import com.example.foodjeetapp.data.local.entity.ProductEntity
  */
 @Database(
     entities = [ProductEntity::class],
-    version = 1,
+    // 2: descarta la caché de la versión 1, que podía contener productos de
+    // relleno inventados por la app cuando el backend no respondía.
+    version = 2,
     exportSchema = false
 )
 abstract class FoodJetDatabase : RoomDatabase() {
