@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Mapa FoodJet</title>
 <style>
-  html, body, #mapa { height: 100%; margin: 0; padding: 0; background: #F8F9FA; }
+  html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #F8F9FA; }
+  #mapa { position: fixed; inset: 0; width: 100%; height: 100%; }
   body { font-family: sans-serif; }
   .info { font-size: 13px; color: #1A1A1A; max-width: 220px; }
   .info b { display: block; margin-bottom: 2px; }
@@ -37,15 +38,22 @@
 
   var mapa = null;
   var modo = 'seguimiento';
+  var iniciado = false;
   var marcadores = {};
   var info = null;
   var lineas = [];
   var circulo = null;
   var encuadreHecho = false;
   var pendiente = null;
+  var pendienteIrA = null;
+  var observadorTamano = null;
 
   function avisar(fn) {
     try { if (window.Android && Android[fn]) Android[fn].apply(Android, [].slice.call(arguments, 1)); } catch (e) {}
+  }
+
+  function tieneTamano(el) {
+    return Boolean(el && el.clientWidth > 0 && el.clientHeight > 0);
   }
 
   function icono(color, escala) {
@@ -135,7 +143,10 @@
       });
     }
 
-    if (!encuadreHecho) { encuadrar(d); encuadreHecho = true; }
+    if (!encuadreHecho) {
+      if (modo !== 'seleccion') encuadrar(d);
+      encuadreHecho = true;
+    }
   }
 
   function encuadrar(d) {
@@ -150,14 +161,33 @@
     else if (hay === 1) { mapa.setCenter(limites.getCenter()); mapa.setZoom(16); }
   }
 
+  function observarCambioDeTamano(el) {
+    var notificar = function () {
+      if (mapa && tieneTamano(el)) google.maps.event.trigger(mapa, 'resize');
+    };
+    if (typeof ResizeObserver !== 'undefined' && !observadorTamano) {
+      observadorTamano = new ResizeObserver(notificar);
+      observadorTamano.observe(el);
+    }
+    window.addEventListener('resize', notificar);
+  }
+
   function crearMapa(cfg) {
-    mapa = new google.maps.Map(document.getElementById('mapa'), {
-      center: cfg.centro,
-      zoom: cfg.zoom || 15,
+    var el = document.getElementById('mapa');
+    var centro = pendienteIrA ? { lat: pendienteIrA.lat, lng: pendienteIrA.lng } : cfg.centro;
+    var zoom = (pendienteIrA && pendienteIrA.zoom) ? pendienteIrA.zoom : (cfg.zoom || 15);
+    if (pendienteIrA) {
+      encuadreHecho = true;
+      pendienteIrA = null;
+    }
+    mapa = new google.maps.Map(el, {
+      center: centro,
+      zoom: zoom,
       disableDefaultUI: true,
       clickableIcons: false,
       gestureHandling: 'greedy'
     });
+    observarCambioDeTamano(el);
     info = new google.maps.InfoWindow();
     if (modo === 'seleccion') {
       mapa.addListener('idle', function () {
@@ -196,19 +226,29 @@
       avisar('keyRechazada');
     };
     window.__foodjetListo = function () {
-      terminar(function () {
-        crearMapa(cfg);
-        // Las teselas no se cargan si la vista no se está dibujando (app en
-        // segundo plano), así que también vale un margen sin rechazo.
-        var avisado = false;
-        var marcarListo = function () {
-          if (avisado || rechazada) return;
-          avisado = true;
-          avisar('listo');
-        };
-        google.maps.event.addListenerOnce(mapa, 'tilesloaded', marcarListo);
-        setTimeout(marcarListo, MARGEN_RECHAZO_MS);
-      });
+      var intentarCrear = function () {
+        if (rechazada || terminado) return;
+        var el = document.getElementById('mapa');
+        if (!tieneTamano(el)) {
+          requestAnimationFrame(intentarCrear);
+          return;
+        }
+        terminar(function () {
+          crearMapa(cfg);
+          // Las teselas no se cargan si la vista no se está dibujando (app en
+          // segundo plano), así que también vale un margen sin rechazo.
+          var avisado = false;
+          var marcarListo = function () {
+            if (avisado || rechazada) return;
+            if (!tieneTamano(document.getElementById('mapa'))) return;
+            avisado = true;
+            avisar('listo');
+          };
+          google.maps.event.addListenerOnce(mapa, 'tilesloaded', marcarListo);
+          setTimeout(marcarListo, MARGEN_RECHAZO_MS);
+        });
+      };
+      intentarCrear();
     };
 
     var s = document.createElement('script');
@@ -224,6 +264,8 @@
   window.FoodJet = {
     ultimos: null,
     iniciar: function (cfg) {
+      if (iniciado) return;
+      iniciado = true;
       modo = cfg.modo || 'seguimiento';
       if (!cfg.key) { avisar('noDisponible', 'El servidor no tiene key de Google Maps'); return; }
       cargarKey(cfg.key, cfg);
@@ -233,12 +275,20 @@
       if (!mapa) { pendiente = d; return; }
       aplicar(d);
     },
-    zoom: function (delta) { if (mapa) mapa.setZoom(mapa.getZoom() + delta); },
+    zoom: function (delta) {
+      if (!mapa) return;
+      var actual = typeof mapa.getZoom() === 'number' ? mapa.getZoom() : 15;
+      mapa.setZoom(Math.max(2, Math.min(21, actual + delta)));
+    },
+    zoomActual: function () { return mapa ? mapa.getZoom() : null; },
     encuadrar: function () { if (mapa) encuadrar(); },
     irA: function (lat, lng, zoom) {
-      if (!mapa) return;
+      if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return;
+      var z = (typeof zoom === 'number' && isFinite(zoom)) ? Math.max(2, Math.min(21, zoom)) : null;
+      if (!mapa) { pendienteIrA = { lat: lat, lng: lng, zoom: z }; return; }
+      encuadreHecho = true;
+      if (z !== null) mapa.setZoom(z);
       mapa.panTo({ lat: lat, lng: lng });
-      if (zoom) mapa.setZoom(zoom);
     }
   };
 })();
