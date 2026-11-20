@@ -3,6 +3,7 @@ package com.example.foodjeetapp.data
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.DeliverySelection
 import com.example.foodjeetapp.data.model.OrderRecord
+import com.example.foodjeetapp.data.model.PaginacionCatalogo
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.SavedAddress
 import com.example.foodjeetapp.data.model.formatearMonto
@@ -225,5 +226,46 @@ class PreExamenFixesUnitTest {
         } finally {
             Locale.setDefault(original)
         }
+    }
+
+    @Test
+    fun `PaginacionCatalogo restringe tamano entre 6 y 16 y pagina 106 productos correctamente`() {
+        assertEquals(6, PaginacionCatalogo.sanitizarTamanoPagina(1))
+        assertEquals(6, PaginacionCatalogo.sanitizarTamanoPagina(6))
+        assertEquals(12, PaginacionCatalogo.sanitizarTamanoPagina(12))
+        assertEquals(16, PaginacionCatalogo.sanitizarTamanoPagina(16))
+        assertEquals(16, PaginacionCatalogo.sanitizarTamanoPagina(50))
+
+        val items = (1..106).toList()
+
+        val paginaMax = PaginacionCatalogo.paginar(items, paginaSolicitada = 1, porPagina = 25)
+        assertEquals(16, paginaMax.tamanoPagina)
+        assertEquals(7, paginaMax.totalPaginas)
+        assertEquals(16, paginaMax.elementos.size)
+        assertEquals(1, paginaMax.indiceInicio)
+        assertEquals(16, paginaMax.indiceFin)
+
+        val ultimaMax = PaginacionCatalogo.paginar(items, paginaSolicitada = 99, porPagina = 16)
+        assertEquals(7, ultimaMax.paginaActual)
+        assertEquals(10, ultimaMax.elementos.size)
+        assertEquals(97, ultimaMax.indiceInicio)
+        assertEquals(106, ultimaMax.indiceFin)
+
+        val paginaMin = PaginacionCatalogo.paginar(items, paginaSolicitada = 2, porPagina = 3)
+        assertEquals(6, paginaMin.tamanoPagina)
+        assertEquals(18, paginaMin.totalPaginas)
+        assertEquals(listOf(7, 8, 9, 10, 11, 12), paginaMin.elementos)
+
+        val vacia = PaginacionCatalogo.paginar(emptyList<Int>(), paginaSolicitada = 3, porPagina = 12)
+        assertEquals(1, vacia.paginaActual)
+        assertEquals(1, vacia.totalPaginas)
+        assertTrue(vacia.elementos.isEmpty())
+        assertEquals(0, vacia.indiceInicio)
+        assertEquals(0, vacia.indiceFin)
+
+        assertEquals(listOf(1, 2, 3, 4, 5), PaginacionCatalogo.paginasVisibles(1, 9))
+        assertEquals(listOf(3, 4, 5, 6, 7), PaginacionCatalogo.paginasVisibles(5, 9))
+        assertEquals(listOf(5, 6, 7, 8, 9), PaginacionCatalogo.paginasVisibles(9, 9))
+        assertEquals(listOf(1, 2, 3), PaginacionCatalogo.paginasVisibles(2, 3))
     }
 }

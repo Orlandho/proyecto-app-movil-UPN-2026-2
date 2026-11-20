@@ -86,6 +86,7 @@ fun FoodJetApp(
     // Estados expuestos por los ViewModels (Arquitectura MVVM limpia)
     val productsState by homeViewModel.productsState.collectAsStateWithLifecycle()
     val favorites by homeViewModel.favorites.collectAsStateWithLifecycle()
+    val pageSize by homeViewModel.pageSize.collectAsStateWithLifecycle()
 
     val cartItems by cartViewModel.cartItems.collectAsStateWithLifecycle()
     val ordersState by orderViewModel.ordersState.collectAsStateWithLifecycle()
@@ -114,6 +115,8 @@ fun FoodJetApp(
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
     var productoOtroLocal by remember { mutableStateOf<ProductItem?>(null) }
+    var homeScrollTopTick by remember { mutableIntStateOf(0) }
+    var menuScrollTopTick by remember { mutableIntStateOf(0) }
 
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cartCount = cartItems.sumOf { it.quantity }
@@ -139,9 +142,14 @@ fun FoodJetApp(
 
     fun irA(ruta: String) {
         if (ruta == Rutas.HOME) {
-            if (navController.popBackStack(Rutas.HOME, inclusive = false)) {
+            homeScrollTopTick++
+            if (rutaActual == Rutas.HOME || navController.popBackStack(Rutas.HOME, inclusive = false)) {
                 return
             }
+        }
+        if (ruta == Rutas.MENU && rutaActual == Rutas.MENU) {
+            menuScrollTopTick++
+            return
         }
         navController.navigate(ruta) {
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -271,7 +279,10 @@ fun FoodJetApp(
                         onFavoriteToggle = ::toggleFavorito,
                         onAddToCart = ::agregarAlCarrito,
                         onNavigateToMenu = { irA(Rutas.MENU) },
-                        onRetry = { homeViewModel.retry(isLoggedIn) }
+                        onRetry = { homeViewModel.retry(isLoggedIn) },
+                        pageSize = pageSize,
+                        onPageSizeChange = homeViewModel::setPageSize,
+                        scrollToTopTrigger = homeScrollTopTick
                     )
                 }
                 composable(Rutas.MENU) {
@@ -288,7 +299,10 @@ fun FoodJetApp(
                         mostrarHero = false,
                         tituloPrincipal = "Explora todo el menú",
                         subtituloPrincipal = "Filtra por categoría, precio o tiempo de entrega.",
-                        tituloSeccion = if (totalCatalogo > 0) "Catálogo completo ($totalCatalogo)" else "Catálogo completo"
+                        tituloSeccion = if (totalCatalogo > 0) "Catálogo completo ($totalCatalogo)" else "Catálogo completo",
+                        pageSize = pageSize,
+                        onPageSizeChange = homeViewModel::setPageSize,
+                        scrollToTopTrigger = menuScrollTopTick
                     )
                 }
                 composable(Rutas.FAVORITOS) {
