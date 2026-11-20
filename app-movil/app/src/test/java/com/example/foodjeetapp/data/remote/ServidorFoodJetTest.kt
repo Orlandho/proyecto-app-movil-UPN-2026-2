@@ -72,11 +72,18 @@ class ServidorFoodJetTest {
         )
     }
 
-    @Test fun `rechaza peticiones a produccion externa y proxy Docker`() {
+    @Test fun `rechaza peticiones a produccion externa, proxy Docker y puertos o hosts HTTP no autorizados`() {
         listOf(
             "https://foodjet.asen.pe/api/orders/7",
             "http://10.0.2.2:8081/api/orders/7",
             "http://localhost:8081/api/orders/7",
+            "http://10.0.2.2:80/api/products",
+            "http://localhost:8080/api/products",
+            "http://10.0.2.2:3001/api/products",
+            "http://127.0.0.1:3000/api/products",
+            "http://192.168.1.50:3000/api/products",
+            "http://example.com/api/products",
+            "http://example.com:3000/api/products",
             "https://images.unsplash.com/photo.jpg",
             "http://10.0.2.2:3000/otra-ruta"
         ).forEach { url ->
