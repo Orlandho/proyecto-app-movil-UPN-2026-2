@@ -73,7 +73,7 @@ Documento técnico que consolida las cinco correcciones de seguridad, ciclo de v
     - Habilita R8 (`isMinifyEnabled = true`) y reducción optimizada de recursos (`isShrinkResources = true`, con optimized resource shrinking automático en AGP 9) usando `proguard-android-optimize.txt` + `proguard-rules.pro`.
     - Agrega configuración de firma `signingConfigs.release` leída exclusivamente desde `app-movil/keystore.properties` (ignorado por Git) o desde variables de entorno (`FOODJET_KEYSTORE_PATH`, `FOODJET_KEYSTORE_PASSWORD`, `FOODJET_KEY_ALIAS`, `FOODJET_KEY_PASSWORD`). Si no están presentes, `release` compila sin firma de forma segura sin fallar ni incluir secretos.
     - Crea la variante `localRelease` (`applicationIdSuffix = ".local"`, `versionNameSuffix = "-academic-local"`) que hereda R8 y usa el `network_security_config.xml` restringido a `10.0.2.2` / `localhost`, preservando intacta la variante `release` estricta HTTPS.
-  - `app/proguard-rules.pro`: reglas mínimas y justificadas para `@JavascriptInterface` (`PuenteMapa` del WebView de Google Maps) y campos `@SerializedName` en DTOs de FoodJet, evitando reglas amplias redundantes con las *consumer rules* de Retrofit 2.11, Gson 2.11, Room 2.6, Coroutines y AndroidX.
+  - `app/proguard-rules.pro`: reglas mínimas y justificadas para `@JavascriptInterface` (`PuenteMapa` del WebView de Google Maps), campos `@SerializedName` en DTOs de FoodJet y el constructor por reflexión de Room 2.6.1 bajo R8 full mode en AGP 9 (`FoodJetDatabase` y `FoodJetDatabase_Impl { public <init>(); }`, hallazgo detectado y corregido durante la prueba en vivo de `app-localRelease.apk`), evitando reglas amplias redundantes con las *consumer rules* de Retrofit 2.11, Gson 2.11, Coroutines y AndroidX.
   - `.gitignore` y `app-movil/.gitignore`: ignoran `keystore.properties`, `*.jks`, `*.keystore`, `*.p12`, `*.pfx`, `*.bks`, `*.apk` y `*.aab`.
 
 ---
@@ -125,11 +125,13 @@ Todas las verificaciones se ejecutaron sobre la rama `fix/seguridad-y-cumplimien
 | `:app:assembleRelease` (sin firma) | **EXITOSO** | R8 + optimized resource shrinking + `lintVitalRelease` exitosos (`app-release-unsigned.apk`). |
 | `:app:assembleLocalRelease` | **EXITOSO** | Variante académica R8 generada (`app-localRelease-unsigned.apk`, 4.03 MB). |
 | `:app:assembleRelease` (firmado temporal) + `apksigner verify` | **EXITOSO** | `app-release.apk` (4.04 MB, reducción de ~93.9% frente a debug) verificado con **APK Signature Scheme v2** (`CN=FoodJet Local Test Only - Not For Production`, RSA 2048). El keystore temporal en `%TEMP%` fue eliminado inmediatamente tras la verificación. |
+| Ejecución en vivo `app-localRelease.apk` (R8 full mode) | **EXITOSO** | Instalado en `Pixel_7(AVD) - 17` contra backend local (`10.0.2.2:3000`). Detectó y corrigió `NoSuchMethodException` en `FoodJetDatabase_Impl.<init>()` bajo R8 full mode. Tras la corrección: arranque en frío en 785 ms, catálogo de 106 productos (`1–12 de 106`), login demo + persistencia cifrada AES-256-GCM en Android Keystore, recuperación automática de sesión tras `am force-stop` en 457 ms, **0 crashes** y **0 fugas de JWT en Logcat**. APK y keystore temporal eliminados tras la prueba. |
 
 ---
 
 ## 5. Limitaciones pendientes y alcance
 
 - **Backend local sin TLS:** el servidor académico (`backend/`) opera localmente por HTTP (`10.0.2.2:3000` / `localhost:3000`). En consecuencia, la variante `release` estricta requiere que un eventual despliegue productivo utilice un backend HTTPS con certificado válido emitido por una CA confiable del sistema.
+- **Dispositivo físico por ADB Reverse:** el flujo para dispositivo físico (`http://localhost:3000/api/` mediante `ServidorFoodJet.NODE_LOCAL_USB` y excepción explícita de `localhost` en `debug`/`localRelease`) fue verificado mediante pruebas unitarias y de política de seguridad (`ServidorFoodJetTest`, `NetworkSecurityConfigTest`, `NetworkSecurityInstrumentedTest`), pero no sobre un teléfono físico conectado por USB en esta sesión (solo se contó con emulador `Pixel_7(AVD) - 17`).
 - **Ausencia de keystore de producción:** el repositorio no contiene ni gestiona claves de firma productivas; para distribución en Google Play se requiere generar y custodiar un Upload Keystore bajo Play App Signing fuera de Git.
 - **Verificación de alcance:** los resultados confirman la corrección de los cinco hallazgos académicos y de seguridad identificados en el entorno controlado de pruebas; no constituyen una auditoría externa de penetración ni certificación para producción comercial.
