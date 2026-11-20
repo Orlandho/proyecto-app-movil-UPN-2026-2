@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Política de seguridad de red para desarrollo (variante debug):
+    - Deniega tráfico HTTP por defecto hacia cualquier host externo.
+    - Autoriza HTTP exclusivamente para el backend local del repositorio:
+      10.0.2.2 (emulador Android) y localhost (dispositivo físico con adb reverse tcp:3000 tcp:3000).
+    - El puerto 3000 y la ruta /api se restringen adicionalmente en ServidorInterceptor.
+    - Todo tráfico HTTPS (Google Maps e imágenes) usa verificación estándar de certificados del sistema.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

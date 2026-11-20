@@ -236,6 +236,9 @@ fun MapaFoodJet(
                         setBackgroundColor("#F8F9FA".toColorInt())
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
                         addJavascriptInterface(
                             PuenteMapa(
                                 webView = vistaActual,
@@ -280,6 +283,18 @@ fun MapaFoodJet(
                             "zoom" to if (modo == ModoMapa.SELECCION) 17 else 15
                         )
                         webViewClient = object : android.webkit.WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: android.webkit.WebResourceRequest?
+                            ): Boolean {
+                                val uri = request?.url ?: return true
+                                val esLocalPermitido = uri.scheme == "http" &&
+                                    (uri.host == "10.0.2.2" || uri.host == "localhost") &&
+                                    uri.port == 3000
+                                // Bloquea navegaciones externas arbitrarias (en especial HTTP sin cifrar) dentro del WebView del mapa.
+                                return !esLocalPermitido
+                            }
+
                             override fun onPageFinished(view: WebView, url: String?) {
                                 view.evaluateJavascript("FoodJet.iniciar(${gson.toJson(config)});", null)
                             }
