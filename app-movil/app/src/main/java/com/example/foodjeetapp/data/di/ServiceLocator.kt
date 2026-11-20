@@ -52,7 +52,7 @@ object ServiceLocator {
     }
 
     val apiService by lazy {
-        RetrofitClient.getApiService(requireContext())
+        RetrofitClient.getApiService(requireContext(), sessionDataStore)
     }
 
     val locationProvider: LocationProvider by lazy {

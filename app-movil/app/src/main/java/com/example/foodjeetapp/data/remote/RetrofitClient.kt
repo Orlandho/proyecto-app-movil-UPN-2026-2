@@ -26,10 +26,13 @@ object RetrofitClient {
     @Volatile
     private var apiServiceInstance: FoodJetApiService? = null
 
-    fun getApiService(context: Context): FoodJetApiService {
+    fun getApiService(
+        context: Context,
+        sessionDataStore: SessionDataStore = SessionDataStore(context.applicationContext)
+    ): FoodJetApiService {
         return apiServiceInstance ?: synchronized(this) {
             apiServiceInstance ?: createApiService(
-                authInterceptor = AuthInterceptor(SessionDataStore(context.applicationContext)),
+                authInterceptor = AuthInterceptor(sessionDataStore),
                 debugLogging = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
             ).also { apiServiceInstance = it }
         }
