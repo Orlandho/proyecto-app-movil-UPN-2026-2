@@ -29,9 +29,15 @@ misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
-# Keystore files
+# Keystore and signing files
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.bks
+*.aab
+keystore.properties
+app-movil/keystore.properties
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json
