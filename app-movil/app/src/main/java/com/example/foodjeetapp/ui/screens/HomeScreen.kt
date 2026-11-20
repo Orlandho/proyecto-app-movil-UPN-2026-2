@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,11 +62,17 @@ fun HomeScreen(
     onPageSizeChange: ((Int) -> Unit)? = null,
     scrollToTopTrigger: Int = 0
 ) {
-    var selectedCategories by remember { mutableStateOf(emptySet<String>()) }
-    var minPrice by remember { mutableStateOf("") }
-    var maxPrice by remember { mutableStateOf("") }
-    var selectedDeliveryTime by remember { mutableStateOf<String?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
+    val categoriesSaver = remember {
+        listSaver<Set<String>, String>(
+            save = { it.toList() },
+            restore = { it.toSet() }
+        )
+    }
+    var selectedCategories by rememberSaveable(stateSaver = categoriesSaver) { mutableStateOf(emptySet<String>()) }
+    var minPrice by rememberSaveable { mutableStateOf("") }
+    var maxPrice by rememberSaveable { mutableStateOf("") }
+    var selectedDeliveryTime by rememberSaveable { mutableStateOf<String?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var localPageSize by rememberSaveable { mutableIntStateOf(PaginacionCatalogo.sanitizarTamanoPagina(pageSize)) }
     var currentPage by rememberSaveable { mutableIntStateOf(1) }
     var ultimoTriggerScroll by rememberSaveable { mutableIntStateOf(0) }
@@ -114,9 +121,17 @@ fun HomeScreen(
         }
     }
 
-    // Volver a la página 1 si cambian los filtros, la búsqueda o el tamaño de página.
-    LaunchedEffect(selectedCategories, minPrice, maxPrice, selectedDeliveryTime, searchQuery, effectivePageSize) {
-        currentPage = 1
+    // Volver a la página 1 solo cuando realmente cambien los filtros, búsqueda o tamaño de página
+    // (sin perder la página actual al rotar o recrear la Activity).
+    val claveFiltros = remember(selectedCategories, minPrice, maxPrice, selectedDeliveryTime, searchQuery, effectivePageSize) {
+        "${selectedCategories.sorted().joinToString(",")}|$minPrice|$maxPrice|${selectedDeliveryTime.orEmpty()}|$searchQuery|$effectivePageSize"
+    }
+    var ultimaClaveFiltros by rememberSaveable { mutableStateOf(claveFiltros) }
+    LaunchedEffect(claveFiltros) {
+        if (claveFiltros != ultimaClaveFiltros) {
+            ultimaClaveFiltros = claveFiltros
+            currentPage = 1
+        }
     }
 
     val pagina = remember(filteredProducts, currentPage, effectivePageSize) {

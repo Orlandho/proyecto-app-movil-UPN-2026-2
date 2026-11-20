@@ -75,6 +75,12 @@ class OrderViewModel(
     private var trackedOrderId: Int? = null
     private var ultimoFetchSeguimientoMs: Long = 0L
 
+    internal val isTrackingPollingActive: Boolean
+        get() = trackingJob?.isActive == true
+
+    internal val currentTrackedOrderId: Int?
+        get() = trackedOrderId
+
     fun loadOrders() {
         viewModelScope.launch {
             _ordersState.value = UiState.Loading

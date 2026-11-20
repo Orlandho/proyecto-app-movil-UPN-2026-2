@@ -19,11 +19,16 @@ class MainActivity : ComponentActivity() {
 
     /** Pedido que pidió abrir un Intent explícito (acceso directo "Seguir pedido"). */
     private val pedidoSolicitado = mutableStateOf<Int?>(null)
+    private var intentInicialAtendido: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ServiceLocator.initialize(this)
-        atender(intent)
+        intentInicialAtendido = savedInstanceState?.getBoolean(KEY_INTENT_INICIAL_ATENDIDO, false) ?: false
+        if (!intentInicialAtendido) {
+            atender(intent)
+            intentInicialAtendido = true
+        }
         enableEdgeToEdge()
         setContent {
             FoodJetTheme {
@@ -38,6 +43,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_INTENT_INICIAL_ATENDIDO, intentInicialAtendido)
     }
 
     // launchMode="singleTop": con la app abierta el Intent llega aquí.
@@ -55,5 +65,9 @@ class MainActivity : ComponentActivity() {
         val pedido = IntentsFoodJet.pedidoDe(intent) ?: return
         intent?.removeExtra(IntentsFoodJet.EXTRA_PEDIDO_ID)
         pedidoSolicitado.value = pedido
+    }
+
+    companion object {
+        private const val KEY_INTENT_INICIAL_ATENDIDO = "foodjet_intent_inicial_atendido"
     }
 }
