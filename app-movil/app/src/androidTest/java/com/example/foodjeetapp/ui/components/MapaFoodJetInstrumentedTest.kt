@@ -28,6 +28,7 @@ import com.example.foodjeetapp.data.model.Geo
 import com.example.foodjeetapp.data.model.GeoPoint
 import com.example.foodjeetapp.data.remote.RetrofitClient
 import com.example.foodjeetapp.data.remote.ServidorFoodJet
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -174,6 +175,7 @@ class MapaFoodJetInstrumentedTest {
                             modo = ModoMapa.SELECCION,
                             centroInicial = GeoPoint(-12.1310, -77.0220),
                             controlador = controlador,
+                            servidor = servidorState,
                             onDisponibilidad = { ok ->
                                 listos.add(ok)
                                 if (ok) {
@@ -196,8 +198,13 @@ class MapaFoodJetInstrumentedTest {
             val zoomTrasIrA = evaluarJs(scenario, wv1, "FoodJet.zoomActual()").toDoubleOrNull()
             assertEquals("ControladorMapa.irA pendiente debe aplicar zoom=16 tras cascada", 16.0, zoomTrasIrA ?: -1.0, 0.5)
 
-            // Ahora cambiamos el servidor en vivo (sin cambiar indiceKey tras reiniciar)
-            ConfigMapa.reiniciarParaPruebas()
+            // Ahora cambiamos el servidor en vivo: conservamos las keys válidas para
+            // probar la recarga del WebView sin depender de `adb reverse tcp:3000`.
+            val keysValidas = runBlocking {
+                ConfigMapa.keys(ServidorFoodJet.NODE_LOCAL_EMULADOR)
+            }.filter { it != "AIzaInvalidKeyForCascadeTest0000" }
+            assertTrue("Debe existir al menos una key válida de Google Maps", keysValidas.isNotEmpty())
+            ConfigMapa.fijarCacheParaPruebas(ServidorFoodJet.NODE_LOCAL_USB, keysValidas)
             esperandoSegundo = true
             scenario.onActivity {
                 RetrofitClient.servidor = ServidorFoodJet.NODE_LOCAL_USB

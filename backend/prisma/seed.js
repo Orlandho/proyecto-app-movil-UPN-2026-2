@@ -14,6 +14,7 @@
  */
 const bcrypt = require('bcryptjs');
 const prisma = require('../src/config/db');
+const { EXTRA_PRODUCTS } = require('./seedProductsExtra');
 
 /**
  * QR de cobro por restaurante.
@@ -70,7 +71,9 @@ async function seedCategories() {
         { nombre: 'Pizzas', descripcion: 'Especialidades italianas' },
         { nombre: 'Sushi', descripcion: 'Comida japonesa y asiática' },
         { nombre: 'Ensaladas', descripcion: 'Opciones saludables' },
-        { nombre: 'Bebidas', descripcion: 'Refrescos y jugos' }
+        { nombre: 'Bebidas', descripcion: 'Refrescos y jugos' },
+        { nombre: 'Postres', descripcion: 'Dulces y helados' },
+        { nombre: 'Combos', descripcion: 'Promociones para compartir' }
     ];
 
     for (const c of categorias) {
@@ -86,7 +89,8 @@ async function seedProducts() {
         { id: 3, restaurante_id: 2, nombre: 'Pizza Pepperoni', descripcion: 'Salsa de tomate, mozzarella y abundante pepperoni', precio: 14.5, imagen_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', descuento_estudiante: 15.0, disponibilidad: true, tipo_comida: 'Pizzas' },
         { id: 4, restaurante_id: 3, nombre: 'Sushi Roll California', descripcion: 'Cangrejo, aguacate, pepino y sésamo tostado', precio: 9.0, imagen_url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', descuento_estudiante: 20.0, disponibilidad: true, tipo_comida: 'Cena' },
         { id: 5, restaurante_id: 1, nombre: 'Ensalada César', descripcion: 'Lechuga romana, crutones, queso parmesano y aderezo César', precio: 7.0, imagen_url: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', descuento_estudiante: 0.0, disponibilidad: true, tipo_comida: 'Cena' },
-        { id: 6, restaurante_id: 1, nombre: 'Refresco de Cola', descripcion: 'Lata de 330ml', precio: 2.0, imagen_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', descuento_estudiante: 5.0, disponibilidad: true, tipo_comida: 'Bebidas' }
+        { id: 6, restaurante_id: 1, nombre: 'Refresco de Cola', descripcion: 'Lata de 330ml', precio: 2.0, imagen_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', descuento_estudiante: 5.0, disponibilidad: true, tipo_comida: 'Bebidas' },
+        ...EXTRA_PRODUCTS
     ];
 
     for (const p of productos) {

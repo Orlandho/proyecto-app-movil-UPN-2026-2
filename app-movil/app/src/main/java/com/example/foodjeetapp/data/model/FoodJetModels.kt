@@ -1,5 +1,13 @@
 package com.example.foodjeetapp.data.model
 
+import java.util.Locale
+
+/** Formatea un monto con 2 decimales y punto decimal independiente del idioma del dispositivo. */
+fun formatearMonto(monto: Double): String = String.format(Locale.US, "%.2f", monto)
+
+/** Formatea un importe en soles peruanos (ej. "S/ 14.03"). */
+fun formatearSoles(monto: Double): String = "S/ ${formatearMonto(monto)}"
+
 data class ProductItem(
     val id: Int,
     val nombre: String,
@@ -132,3 +140,54 @@ data class UserProfile(
     val isStudent: Boolean = true,
     val isAdmin: Boolean = false
 )
+
+/** Resultado de una página del catálogo de productos. */
+data class PaginaCatalogo<T>(
+    val elementos: List<T>,
+    val paginaActual: Int,
+    val totalPaginas: Int,
+    val tamanoPagina: Int,
+    val totalElementos: Int,
+    val indiceInicio: Int,
+    val indiceFin: Int
+)
+
+/** Reglas puras de paginación configurable del catálogo (6 a 16 productos por página). */
+object PaginacionCatalogo {
+    const val MIN_POR_PAGINA = 6
+    const val MAX_POR_PAGINA = 16
+    const val DEFAULT_POR_PAGINA = 12
+    val ATAJOS_RAPIDOS = listOf(6, 12, 16)
+
+    fun sanitizarTamanoPagina(valor: Int): Int = valor.coerceIn(MIN_POR_PAGINA, MAX_POR_PAGINA)
+
+    fun <T> paginar(items: List<T>, paginaSolicitada: Int, porPagina: Int): PaginaCatalogo<T> {
+        val tamano = sanitizarTamanoPagina(porPagina)
+        val total = items.size
+        val totalPaginas = if (total == 0) 1 else ((total - 1) / tamano) + 1
+        val paginaActual = paginaSolicitada.coerceIn(1, totalPaginas)
+        val desde = if (total == 0) 0 else (paginaActual - 1) * tamano
+        val hasta = (desde + tamano).coerceAtMost(total)
+        val elementos = if (total == 0) emptyList() else items.subList(desde, hasta)
+        return PaginaCatalogo(
+            elementos = elementos,
+            paginaActual = paginaActual,
+            totalPaginas = totalPaginas,
+            tamanoPagina = tamano,
+            totalElementos = total,
+            indiceInicio = if (total == 0) 0 else desde + 1,
+            indiceFin = hasta
+        )
+    }
+
+    /** Ventana compacta de números de página visibles alrededor de [paginaActual]. */
+    fun paginasVisibles(paginaActual: Int, totalPaginas: Int, maxBotones: Int = 5): List<Int> {
+        if (totalPaginas <= 0) return emptyList()
+        val limite = maxBotones.coerceAtLeast(1)
+        if (totalPaginas <= limite) return (1..totalPaginas).toList()
+        val mitad = limite / 2
+        val inicio = (paginaActual - mitad).coerceIn(1, totalPaginas - limite + 1)
+        val fin = (inicio + limite - 1).coerceAtMost(totalPaginas)
+        return (inicio..fin).toList()
+    }
+}

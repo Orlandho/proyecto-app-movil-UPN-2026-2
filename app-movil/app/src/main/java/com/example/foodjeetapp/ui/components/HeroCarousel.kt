@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +42,7 @@ fun HeroCarousel(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(230.dp)
+            .height(264.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(FoodJetPrimary)
     ) {
@@ -60,15 +61,15 @@ fun HeroCarousel(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(width = 150.dp, height = 170.dp)
+                        .size(width = 148.dp, height = 180.dp)
                         .clip(RoundedCornerShape(topStart = 32.dp))
                 )
 
                 Column(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .fillMaxWidth(0.62f)
-                        .padding(start = 20.dp, top = 16.dp, bottom = 28.dp)
+                        .fillMaxWidth(0.64f)
+                        .padding(start = 20.dp, top = 16.dp, bottom = 26.dp)
                 ) {
                     Surface(shape = CircleShape, color = FoodJetYellow) {
                         Text(
@@ -76,36 +77,48 @@ fun HeroCarousel(
                             color = FoodJetDark,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = slide.title,
                         color = Color.White,
-                        fontSize = 28.sp,
-                        lineHeight = 30.sp,
+                        fontSize = 22.sp,
+                        lineHeight = 25.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.ExtraBold
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = slide.subtitle,
                         color = Color.White.copy(alpha = 0.92f),
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
-                        maxLines = 3
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = { onActionClick(slide) },
+                        modifier = Modifier.heightIn(min = 40.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = FoodJetDark
                         ),
                         shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Text(slide.buttonText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            text = slide.buttonText,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                     }

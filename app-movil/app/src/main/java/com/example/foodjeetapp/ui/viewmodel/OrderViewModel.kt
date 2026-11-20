@@ -48,7 +48,7 @@ class OrderViewModel(
         }
     }
 
-    private val _ordersState = MutableStateFlow<UiState<List<OrderRecord>>>(UiState.Loading)
+    private val _ordersState = MutableStateFlow<UiState<List<OrderRecord>>>(UiState.Empty)
     val ordersState: StateFlow<UiState<List<OrderRecord>>> = _ordersState.asStateFlow()
 
     // Estado del pedido actualmente en seguimiento en vivo
@@ -59,11 +59,11 @@ class OrderViewModel(
     val trackingError: StateFlow<String?> = _trackingError.asStateFlow()
 
     // Estado para el panel de administración
-    private val _adminOrdersState = MutableStateFlow<UiState<List<AdminOrderDto>>>(UiState.Loading)
+    private val _adminOrdersState = MutableStateFlow<UiState<List<AdminOrderDto>>>(UiState.Empty)
     val adminOrdersState: StateFlow<UiState<List<AdminOrderDto>>> = _adminOrdersState.asStateFlow()
 
     // Direcciones guardadas del cliente para el checkout
-    private val _addressesState = MutableStateFlow<UiState<List<SavedAddress>>>(UiState.Loading)
+    private val _addressesState = MutableStateFlow<UiState<List<SavedAddress>>>(UiState.Empty)
     val addressesState: StateFlow<UiState<List<SavedAddress>>> = _addressesState.asStateFlow()
 
     private val _isSubmitting = MutableStateFlow(false)
@@ -73,10 +73,7 @@ class OrderViewModel(
 
     private var trackingJob: Job? = null
     private var trackedOrderId: Int? = null
-
-    init {
-        loadOrders()
-    }
+    private var ultimoFetchSeguimientoMs: Long = 0L
 
     fun loadOrders() {
         viewModelScope.launch {
@@ -131,10 +128,18 @@ class OrderViewModel(
         if (trackingJob?.isActive == true) return
         trackingJob = viewModelScope.launch {
             var fallos = 0
+            // Si el pedido se acaba de obtener (p.ej. al crearlo), espera un ciclo antes de repetir la consulta.
+            val yaFresco = _currentTrackingOrder.value?.numericId == orderId &&
+                (System.currentTimeMillis() - ultimoFetchSeguimientoMs) < 1_500L
+            if (yaFresco) {
+                val esperaInicial = intervaloDeSondeo(_currentTrackingOrder.value?.estado, 0) ?: return@launch
+                delay(esperaInicial)
+            }
             while (isActive) {
                 orderRepository.getOrderById(orderId)
                     .onSuccess { order ->
                         fallos = 0
+                        ultimoFetchSeguimientoMs = System.currentTimeMillis()
                         _trackingError.value = null
                         _currentTrackingOrder.value = order
                     }
@@ -175,6 +180,7 @@ class OrderViewModel(
             _isSubmitting.value = false
             result.onSuccess { freshOrder ->
                 seguirPedido(freshOrder.numericId)
+                ultimoFetchSeguimientoMs = System.currentTimeMillis()
                 _currentTrackingOrder.value = freshOrder
                 loadOrders()
                 loadAddresses()
@@ -266,11 +272,13 @@ class OrderViewModel(
     fun limpiar() {
         pausarSeguimiento()
         trackedOrderId = null
+        ultimoFetchSeguimientoMs = 0L
         _currentTrackingOrder.value = null
-        _addressesState.value = UiState.Loading
-        _adminOrdersState.value = UiState.Loading
+        _trackingError.value = null
+        _ordersState.value = UiState.Empty
+        _addressesState.value = UiState.Empty
+        _adminOrdersState.value = UiState.Empty
         restaurantes.clear()
-        loadOrders()
     }
 
     override fun onCleared() {

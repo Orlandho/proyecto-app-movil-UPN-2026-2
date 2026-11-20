@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.EstadisticasAdmin
 import com.example.foodjeetapp.data.model.Seguimiento
+import com.example.foodjeetapp.data.model.formatearSoles
 import com.example.foodjeetapp.data.remote.dto.AdminOrderDto
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
@@ -111,7 +112,7 @@ fun AdminDashboardScreen(
                         }
                         if (ordersState is UiState.Success) {
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("S/ ${String.format("%.2f", estadisticas.totalVendido)}", fontWeight = FontWeight.ExtraBold, color = FoodJetPrimaryDark)
+                                Text(formatearSoles(estadisticas.totalVendido), fontWeight = FontWeight.ExtraBold, color = FoodJetPrimaryDark)
                                 Text("${estadisticas.pedidosActivos} activos", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -165,7 +166,7 @@ fun AdminDashboardScreen(
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text("Pedido #${o.id} · ${o.cliente ?: "Cliente"}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                                 Text(
-                                                    "${o.restaurante.orEmpty()} · S/ ${String.format("%.2f", o.total)} · ${ETIQUETA_ESTADO[estado] ?: o.estado}",
+                                                    "${o.restaurante.orEmpty()} · ${formatearSoles(o.total)} · ${ETIQUETA_ESTADO[estado] ?: o.estado}",
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -221,7 +222,7 @@ fun AdminDashboardScreen(
                                             .fillMaxHeight((monto / maximo).toFloat().coerceIn(0.02f, 0.85f))
                                             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                             .background(if (monto > 0) FoodJetPrimaryDark else MaterialTheme.colorScheme.surfaceVariant)
-                                            .semantics { contentDescription = "$dia: S/ ${String.format("%.2f", monto)}" }
+                                            .semantics { contentDescription = "$dia: ${formatearSoles(monto)}" }
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(dia, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -247,7 +248,7 @@ fun AdminDashboardScreen(
                                 Column {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(localNombre, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                        Text("S/ ${String.format("%.2f", monto)} · ${(fraccion * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("${formatearSoles(monto)} · ${(fraccion * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(

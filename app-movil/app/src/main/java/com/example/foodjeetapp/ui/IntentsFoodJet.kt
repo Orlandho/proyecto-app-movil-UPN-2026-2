@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.net.toUri
 import com.example.foodjeetapp.MainActivity
 import com.example.foodjeetapp.R
 import com.example.foodjeetapp.data.model.GeoPoint
@@ -56,12 +57,12 @@ object IntentsFoodJet {
     }
 
     fun abrirWeb(context: Context, url: String): Boolean =
-        lanzar(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        lanzar(context, Intent(Intent.ACTION_VIEW, url.toUri()))
 
     /** Abre el punto en la app de mapas instalada (Google Maps, Waze...). */
     fun abrirEnMapas(context: Context, punto: GeoPoint, etiqueta: String): Boolean {
         val coordenadas = "${punto.latitud},${punto.longitud}"
-        val uri = Uri.parse("geo:$coordenadas?q=$coordenadas(${Uri.encode(etiqueta)})")
+        val uri = "geo:$coordenadas?q=$coordenadas(${Uri.encode(etiqueta)})".toUri()
         return lanzar(context, Intent(Intent.ACTION_VIEW, uri)) ||
             abrirWeb(context, "https://www.google.com/maps/search/?api=1&query=$coordenadas")
     }

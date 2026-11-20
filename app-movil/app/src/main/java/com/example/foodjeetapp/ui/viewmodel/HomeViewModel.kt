@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.di.ServiceLocator
+import com.example.foodjeetapp.data.model.PaginacionCatalogo
 import com.example.foodjeetapp.data.model.ProductItem
 import com.example.foodjeetapp.data.model.PromotionSlide
 import com.example.foodjeetapp.data.repository.ProductRepository
@@ -39,6 +40,9 @@ class HomeViewModel(
     private val _favorites = MutableStateFlow<Set<Int>>(emptySet())
     val favorites: StateFlow<Set<Int>> = _favorites.asStateFlow()
 
+    private val _pageSize = MutableStateFlow(PaginacionCatalogo.DEFAULT_POR_PAGINA)
+    val pageSize: StateFlow<Int> = _pageSize.asStateFlow()
+
     // Lista de productos filtrada de manera reactiva según búsqueda, categoría y rango de precio
     val filteredProducts: StateFlow<List<ProductItem>> = combine(
         _productsState,
@@ -66,7 +70,6 @@ class HomeViewModel(
 
     init {
         loadProducts()
-        loadFavorites()
     }
 
     fun loadFavorites() {
@@ -76,6 +79,11 @@ class HomeViewModel(
                 _favorites.value = ids
             }
         }
+    }
+
+    /** Limpia los favoritos en memoria al cerrar sesión o expirar el token. */
+    fun clearFavorites() {
+        _favorites.value = emptySet()
     }
 
     fun loadProducts() {
@@ -97,9 +105,9 @@ class HomeViewModel(
         }
     }
 
-    fun retry() {
+    fun retry(isLoggedIn: Boolean = false) {
         loadProducts()
-        loadFavorites()
+        if (isLoggedIn) loadFavorites()
     }
 
     fun setCategory(category: String) {
@@ -112,6 +120,10 @@ class HomeViewModel(
 
     fun setMaxPrice(price: Float) {
         _maxPrice.value = price
+    }
+
+    fun setPageSize(size: Int) {
+        _pageSize.value = PaginacionCatalogo.sanitizarTamanoPagina(size)
     }
 
     fun toggleFavorite(productId: Int) {

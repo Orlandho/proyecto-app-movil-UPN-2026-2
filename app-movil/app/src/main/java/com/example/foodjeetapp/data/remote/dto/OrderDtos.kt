@@ -104,7 +104,7 @@ data class OrderResponseDto(
         }
 
         val cartItems = orderItems?.map { item ->
-            val productDomain = item.product?.toDomain() ?: ProductItem(
+            val productDomain = item.product?.toDomain()?.copy(precio = item.precioUnitario) ?: ProductItem(
                 id = item.productId,
                 nombre = "Producto #${item.productId}",
                 descripcion = "",
@@ -119,6 +119,8 @@ data class OrderResponseDto(
         val subtotalCalculated = cartItems.sumOf { it.product.precio * it.quantity }
         val tax = impuestos ?: (subtotalCalculated * 0.18)
         val shipping = costoEnvio ?: 5.00
+        val subtotalNeto = (total - tax - shipping).coerceAtLeast(0.0)
+        val descuentoCalculado = (subtotalCalculated - subtotalNeto).let { if (it >= 0.01) it else 0.0 }
 
         val methodLabel = when (transaction?.metodoPago?.lowercase()?.trim()) {
             "cash" -> "Efectivo"
@@ -152,6 +154,7 @@ data class OrderResponseDto(
             subtotal = subtotalCalculated,
             impuestos = tax,
             envio = shipping,
+            descuento = descuentoCalculado,
             total = total,
             paymentMethod = methodLabel,
             reviewStars = review?.puntuacion,
