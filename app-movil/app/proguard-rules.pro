@@ -18,3 +18,10 @@
 -keepclassmembers,allowobfuscation class com.example.foodjeetapp.data.remote.dto.** {
     @com.google.gson.annotations.SerializedName <fields>;
 }
+
+# 3. Room 2.6.1 bajo R8 full mode (AGP 9): Room.databaseBuilder() instancia la
+# clase generada FoodJetDatabase_Impl por reflexión usando su constructor vacío.
+-keep class com.example.foodjeetapp.data.local.FoodJetDatabase
+-keep class com.example.foodjeetapp.data.local.FoodJetDatabase_Impl {
+    public <init>();
+}
