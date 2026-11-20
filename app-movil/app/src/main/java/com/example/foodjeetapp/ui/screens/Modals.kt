@@ -29,9 +29,11 @@ import com.example.foodjeetapp.ui.theme.FoodJetDark
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetPrimaryDark
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
+import android.content.pm.ApplicationInfo
 import android.webkit.WebView
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
@@ -47,8 +49,12 @@ fun LoginDialog(
     errorMessage: String? = null,
     isLoading: Boolean = false
 ) {
-    var email by remember { mutableStateOf("cliente1@mail.com") }
-    var password by remember { mutableStateOf("Cliente123!") }
+    val context = LocalContext.current
+    val esDebug = remember(context) {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+    var email by remember { mutableStateOf(if (esDebug) "cliente1@mail.com" else "") }
+    var password by remember { mutableStateOf(if (esDebug) "Cliente123!" else "") }
     var localError by remember { mutableStateOf<String?>(null) }
 
     val activeError = errorMessage ?: localError

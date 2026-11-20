@@ -17,6 +17,20 @@ class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems.asStateFlow()
 
+    /** Indica si el producto pertenece a un restaurante distinto al del carrito actual. */
+    fun esDeOtroRestaurante(product: ProductItem): Boolean {
+        val actual = _cartItems.value.firstOrNull()?.product?.restauranteId ?: return false
+        return actual != product.restauranteId
+    }
+
+    /** Nombre del restaurante al que pertenecen los productos del carrito, o null si está vacío. */
+    fun restauranteActualNombre(): String? = _cartItems.value.firstOrNull()?.product?.restauranteNombre
+
+    /** Reemplaza el contenido del carrito por el producto de un nuevo restaurante. */
+    fun reemplazarConProducto(product: ProductItem) {
+        _cartItems.value = listOf(CartItem(product = product.copy(), quantity = 1))
+    }
+
     fun addToCart(product: ProductItem) {
         _cartItems.update { current ->
             val index = current.indexOfFirst { it.product.id == product.id }

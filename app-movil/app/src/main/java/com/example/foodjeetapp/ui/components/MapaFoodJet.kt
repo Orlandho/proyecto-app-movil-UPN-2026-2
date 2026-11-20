@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.foodjeetapp.data.di.ServiceLocator
@@ -164,6 +165,7 @@ fun MapaFoodJet(
     modo: ModoMapa = ModoMapa.SEGUIMIENTO,
     centroInicial: GeoPoint? = null,
     controlador: ControladorMapa? = null,
+    servidor: ServidorFoodJet = RetrofitClient.servidor,
     /** En modo selección, el punto bajo el pin central cuando el mapa deja de moverse. */
     onCentroCambiado: (GeoPoint) -> Unit = {},
     /** Avisa si hay mapa de Google (true) o solo el esquema (false). */
@@ -175,7 +177,6 @@ fun MapaFoodJet(
     var estado by remember { mutableStateOf<EstadoMapa>(EstadoMapa.Cargando) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val gson = remember { Gson() }
-    val servidor = RetrofitClient.servidor
     val alCentro by rememberUpdatedState(onCentroCambiado)
     val alDisponibilidad by rememberUpdatedState(onDisponibilidad)
 
@@ -232,7 +233,7 @@ fun MapaFoodJet(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        setBackgroundColor(android.graphics.Color.parseColor("#F8F9FA"))
+                        setBackgroundColor("#F8F9FA".toColorInt())
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         addJavascriptInterface(

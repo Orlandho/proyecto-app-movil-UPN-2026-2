@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.foodjeetapp.data.model.ProductItem
+import com.example.foodjeetapp.data.model.formatearSoles
 import com.example.foodjeetapp.ui.theme.FoodJetBorder
 import com.example.foodjeetapp.ui.theme.FoodJetDark
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
@@ -159,14 +160,14 @@ fun ProductCard(
                     Column {
                         if (hasDiscount) {
                             Text(
-                                text = "S/ ${String.format("%.2f", product.precio)}",
+                                text = formatearSoles(product.precio),
                                 fontSize = 10.sp,
                                 textDecoration = TextDecoration.LineThrough,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            text = "S/ ${String.format("%.2f", effectivePrice)}",
+                            text = formatearSoles(effectivePrice),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = if (hasDiscount) FoodJetSuccessDeep else MaterialTheme.colorScheme.onSurface

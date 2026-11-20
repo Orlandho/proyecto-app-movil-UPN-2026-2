@@ -1,5 +1,13 @@
 package com.example.foodjeetapp.data.model
 
+import java.util.Locale
+
+/** Formatea un monto con 2 decimales y punto decimal independiente del idioma del dispositivo. */
+fun formatearMonto(monto: Double): String = String.format(Locale.US, "%.2f", monto)
+
+/** Formatea un importe en soles peruanos (ej. "S/ 14.03"). */
+fun formatearSoles(monto: Double): String = "S/ ${formatearMonto(monto)}"
+
 data class ProductItem(
     val id: Int,
     val nombre: String,

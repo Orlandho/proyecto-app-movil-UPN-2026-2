@@ -1,6 +1,7 @@
 package com.example.foodjeetapp.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
@@ -13,7 +14,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -113,9 +113,21 @@ fun FoodJetApp(
     var pagoQr by remember { mutableStateOf<PagoQrPendiente?>(null) }
     var reviewTargetOrder by remember { mutableStateOf<OrderRecord?>(null) }
     var showMiCuentaDialog by remember { mutableStateOf(false) }
+    var productoOtroLocal by remember { mutableStateOf<ProductItem?>(null) }
 
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cartCount = cartItems.sumOf { it.quantity }
+
+    // Sincronizar datos protegidos solo cuando exista sesión activa.
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            orderViewModel.loadOrders()
+            orderViewModel.loadAddresses()
+            homeViewModel.loadFavorites()
+        } else {
+            homeViewModel.clearFavorites()
+        }
+    }
 
     // Intent explícito del acceso directo "Seguir pedido #N".
     LaunchedEffect(pedidoSolicitado) {
@@ -174,10 +186,30 @@ fun FoodJetApp(
 
     fun limpiarSesion() {
         orderViewModel.limpiar()
-        homeViewModel.retry()
+        homeViewModel.clearFavorites()
+        homeViewModel.loadProducts()
         cartViewModel.clearCart()
         IntentsFoodJet.quitarAccesoDirecto(context)
         navController.navigate(Rutas.HOME) { popUpTo(0) }
+    }
+
+    fun toggleFavorito(id: Int) {
+        if (!isLoggedIn) {
+            showLoginDialog = true
+            return
+        }
+        val wasFav = favorites.contains(id)
+        homeViewModel.toggleFavorite(id)
+        avisar(if (wasFav) "Eliminado de favoritos" else "¡Añadido a favoritos! ❤️")
+    }
+
+    fun agregarAlCarrito(product: ProductItem) {
+        if (cartViewModel.esDeOtroRestaurante(product)) {
+            productoOtroLocal = product
+            return
+        }
+        cartViewModel.addToCart(product)
+        avisar("¡${product.nombre} añadido al carrito!")
     }
 
     val sesionRechazada by authViewModel.sesionRechazada.collectAsStateWithLifecycle()
@@ -190,6 +222,7 @@ fun FoodJetApp(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = if (rutaActual in Rutas.SIN_BARRAS) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
         topBar = {
             if (rutaActual !in Rutas.SIN_BARRAS) {
                 FoodJetTopBar(
@@ -235,42 +268,27 @@ fun FoodJetApp(
                         promotions = homeViewModel.getPromotions(),
                         isStudent = activeUser.isStudent,
                         favorites = favorites,
-                        onFavoriteToggle = { id ->
-                            if (!isLoggedIn) {
-                                showLoginDialog = true
-                                return@HomeScreen
-                            }
-                            val wasFav = favorites.contains(id)
-                            homeViewModel.toggleFavorite(id)
-                            avisar(if (wasFav) "Eliminado de favoritos" else "¡Añadido a favoritos! ❤️")
-                        },
-                        onAddToCart = { product ->
-                            cartViewModel.addToCart(product)
-                            avisar("¡${product.nombre} añadido al carrito!")
-                        },
+                        onFavoriteToggle = ::toggleFavorito,
+                        onAddToCart = ::agregarAlCarrito,
                         onNavigateToMenu = { irA(Rutas.MENU) },
-                        onRetry = { homeViewModel.retry() }
+                        onRetry = { homeViewModel.retry(isLoggedIn) }
                     )
                 }
                 composable(Rutas.MENU) {
+                    val totalCatalogo = (productsState as? UiState.Success<List<ProductItem>>)?.data?.size ?: 0
                     HomeScreen(
                         productsState = productsState,
-                        promotions = homeViewModel.getPromotions(),
+                        promotions = emptyList(),
                         isStudent = activeUser.isStudent,
                         favorites = favorites,
-                        onFavoriteToggle = { id ->
-                            if (!isLoggedIn) {
-                                showLoginDialog = true
-                                return@HomeScreen
-                            }
-                            homeViewModel.toggleFavorite(id)
-                        },
-                        onAddToCart = { product ->
-                            cartViewModel.addToCart(product)
-                            avisar("¡${product.nombre} añadido al carrito!")
-                        },
-                        onNavigateToMenu = {},
-                        onRetry = { homeViewModel.retry() }
+                        onFavoriteToggle = ::toggleFavorito,
+                        onAddToCart = ::agregarAlCarrito,
+                        onNavigateToMenu = { irA(Rutas.MENU) },
+                        onRetry = { homeViewModel.retry(isLoggedIn) },
+                        mostrarHero = false,
+                        tituloPrincipal = "Explora todo el menú",
+                        subtituloPrincipal = "Filtra por categoría, precio o tiempo de entrega.",
+                        tituloSeccion = if (totalCatalogo > 0) "Catálogo completo ($totalCatalogo)" else "Catálogo completo"
                     )
                 }
                 composable(Rutas.FAVORITOS) {
@@ -283,10 +301,7 @@ fun FoodJetApp(
                             homeViewModel.toggleFavorite(id)
                             avisar("Eliminado de favoritos")
                         },
-                        onAddToCart = { product ->
-                            cartViewModel.addToCart(product)
-                            avisar("¡${product.nombre} añadido al carrito!")
-                        },
+                        onAddToCart = ::agregarAlCarrito,
                         onExploreMenu = { irA(Rutas.HOME) }
                     )
                 }
@@ -312,6 +327,7 @@ fun FoodJetApp(
                         initialPhone = activeUser.phone,
                         addressesState = addressesState,
                         isSubmitting = isSubmitting,
+                        servidor = servidor,
                         onRequireLogin = { showLoginDialog = true },
                         onRetryAddresses = { orderViewModel.loadAddresses() },
                         onBackToMenu = { navController.popBackStack() },
@@ -352,6 +368,7 @@ fun FoodJetApp(
                         order = currentTrackingOrder?.takeIf { it.numericId == pedidoId },
                         pedidoId = pedidoId,
                         error = trackingError,
+                        servidor = servidor,
                         onCancelOrder = { orderId ->
                             orderViewModel.cancelCurrentOrder(
                                 orderId = orderId,
@@ -438,9 +455,6 @@ fun FoodJetApp(
                     password = password,
                     onSuccess = { userName ->
                         showLoginDialog = false
-                        // Recargar pedidos y favoritos del usuario recién logueado
-                        orderViewModel.loadOrders()
-                        homeViewModel.loadFavorites()
                         avisar("¡Bienvenido, $userName!")
                     },
                     onError = ::avisar
@@ -467,8 +481,6 @@ fun FoodJetApp(
                     password = password,
                     onSuccess = {
                         showRegisterDialog = false
-                        orderViewModel.loadOrders()
-                        homeViewModel.loadFavorites()
                         avisar("¡Cuenta creada exitosamente!")
                     },
                     onError = ::avisar
@@ -534,7 +546,7 @@ fun FoodJetApp(
                 authViewModel.verifyStudent(
                     onSuccess = {
                         showMiCuentaDialog = false
-                        homeViewModel.retry()
+                        homeViewModel.retry(isLoggedIn)
                         avisar("¡Carnet verificado! Descuentos de estudiante desbloqueados.")
                     },
                     onError = ::avisar
@@ -552,6 +564,32 @@ fun FoodJetApp(
                 }
             },
             onDismiss = { showMiCuentaDialog = false }
+        )
+    }
+
+    // Confirmación cuando se intenta agregar un producto de otro restaurante
+    productoOtroLocal?.let { nuevo ->
+        val localActual = cartViewModel.restauranteActualNombre() ?: "otro restaurante"
+        AlertDialog(
+            onDismissRequest = { productoOtroLocal = null },
+            title = { Text("¿Cambiar de restaurante?") },
+            text = {
+                Text(
+                    "Tu carrito tiene productos de $localActual. " +
+                        "Solo puedes pedir de un restaurante a la vez. " +
+                        "¿Quieres vaciar el carrito y agregar ${nuevo.nombre} de ${nuevo.restauranteNombre}?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    cartViewModel.reemplazarConProducto(nuevo)
+                    productoOtroLocal = null
+                    avisar("¡${nuevo.nombre} añadido al carrito!")
+                }) { Text("Cambiar y agregar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { productoOtroLocal = null }) { Text("Cancelar") }
+            }
         )
     }
 }

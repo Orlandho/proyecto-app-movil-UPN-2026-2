@@ -34,6 +34,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.foodjeetapp.data.model.CartItem
 import com.example.foodjeetapp.data.model.ProductItem
+import com.example.foodjeetapp.data.model.formatearSoles
 import com.example.foodjeetapp.ui.theme.FoodJetBorder
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetSuccessDeep
@@ -272,7 +273,7 @@ fun CartSheet(
                         }
 
                         Text(
-                            text = "S/ ${String.format("%.2f", effectivePrice * item.quantity)}",
+                            text = formatearSoles(effectivePrice * item.quantity),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface
@@ -302,7 +303,7 @@ fun CartSheet(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "S/ ${String.format("%.2f", total)}",
+                    text = formatearSoles(total),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -328,7 +329,7 @@ fun CartSheet(
                 )
             ) {
                 Text(
-                    text = "Ir a pagar · S/ ${String.format("%.2f", total)}",
+                    text = "Ir a pagar · ${formatearSoles(total)}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )

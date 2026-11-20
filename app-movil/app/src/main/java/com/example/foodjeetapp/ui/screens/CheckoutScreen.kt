@@ -48,6 +48,9 @@ import com.example.foodjeetapp.data.model.Geo
 import com.example.foodjeetapp.data.model.ValidacionTarjeta
 import com.example.foodjeetapp.data.model.GeoPoint
 import com.example.foodjeetapp.data.model.SavedAddress
+import com.example.foodjeetapp.data.model.formatearSoles
+import com.example.foodjeetapp.data.remote.RetrofitClient
+import com.example.foodjeetapp.data.remote.ServidorFoodJet
 import com.example.foodjeetapp.data.remote.dto.RestaurantDto
 import com.example.foodjeetapp.ui.IntentsFoodJet
 import com.example.foodjeetapp.ui.components.ControladorMapa
@@ -65,6 +68,7 @@ import com.example.foodjeetapp.ui.theme.FoodJetSuccessSoft
 import com.example.foodjeetapp.ui.theme.FoodJetTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * Cupones que existen en la base del backend (`backend/prisma/seed.js`). El
@@ -91,7 +95,8 @@ fun CheckoutScreen(
     onRetryAddresses: () -> Unit,
     onBackToMenu: () -> Unit,
     onConfirmar: (paymentMethod: String, cuponId: Int?, entrega: DeliverySelection) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    servidor: ServidorFoodJet = RetrofitClient.servidor
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -456,6 +461,7 @@ fun CheckoutScreen(
                             modo = ModoMapa.SELECCION,
                             controlador = controladorMapa,
                             centroInicial = punto ?: puntoLocal,
+                            servidor = servidor,
                             datos = DatosMapa(
                                 restaurante = puntoLocal?.let { PuntoMapa(it, local?.nombre ?: "Local", local?.direccion.orEmpty()) },
                                 // Con Google Maps el pin fijo del centro ya marca la entrega; el esquema necesita el punto.
@@ -501,7 +507,7 @@ fun CheckoutScreen(
                                 val distancia = puntoLocal?.let { Geo.distanciaMetros(it, p) }
                                 Text(
                                     text = buildString {
-                                        append("%.5f, %.5f".format(p.latitud, p.longitud))
+                                        append(String.format(Locale.US, "%.5f, %.5f", p.latitud, p.longitud))
                                         if (distancia != null) append("\nA ${Geo.formatearDistancia(distancia)} del local (en línea recta)")
                                     },
                                     fontSize = 11.sp,
@@ -618,7 +624,7 @@ fun CheckoutScreen(
                             ) {
                                 Text("Paga con Yape o Plin", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text(
-                                    "S/ ${String.format("%.2f", total)}",
+                                    formatearSoles(total),
                                     fontSize = 26.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
@@ -663,8 +669,9 @@ fun CheckoutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Spacer(modifier = Modifier.height(4.dp))
+                        val totalProductos = cartItems.sumOf { it.quantity }
                         Text(
-                            "${cartItems.firstOrNull()?.product?.restauranteNombre ?: "FoodJet"} · ${cartItems.sumOf { it.quantity }} productos",
+                            "${cartItems.firstOrNull()?.product?.restauranteNombre ?: "FoodJet"} · $totalProductos ${if (totalProductos == 1) "producto" else "productos"}",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -698,7 +705,7 @@ fun CheckoutScreen(
                                     )
                                 }
                                 Text(
-                                    text = "S/ ${String.format("%.2f", item.product.getEffectivePrice(isStudent) * item.quantity)}",
+                                    text = formatearSoles(item.product.getEffectivePrice(isStudent) * item.quantity),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -757,12 +764,12 @@ fun CheckoutScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        FinanceRow("Subtotal", "S/ ${String.format("%.2f", subtotal)}")
+                        FinanceRow("Subtotal", formatearSoles(subtotal))
                         if (couponAppliedId != null) {
-                            FinanceRow("Descuento (${(couponDiscountPercent * 100).toInt()}%)", "-S/ ${String.format("%.2f", discount)}", isDiscount = true)
+                            FinanceRow("Descuento (${(couponDiscountPercent * 100).toInt()}%)", "-${formatearSoles(discount)}", isDiscount = true)
                         }
-                        FinanceRow("Impuestos (18% IGV)", "S/ ${String.format("%.2f", taxes)}")
-                        FinanceRow("Costo de Delivery", "S/ ${String.format("%.2f", deliveryFee)}")
+                        FinanceRow("Impuestos (18% IGV)", formatearSoles(taxes))
+                        FinanceRow("Costo de Delivery", formatearSoles(deliveryFee))
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -773,7 +780,7 @@ fun CheckoutScreen(
                         ) {
                             Text("Total a Pagar", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             Text(
-                                text = "S/ ${String.format("%.2f", total)}",
+                                text = formatearSoles(total),
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 22.sp,
                                 color = MaterialTheme.colorScheme.primary
@@ -817,8 +824,8 @@ fun CheckoutScreen(
                             Text(
                                 text = when {
                                     isSubmitting -> "Registrando..."
-                                    paymentMethod == "wallet" -> "Ya pagué · S/ ${String.format("%.2f", total)}"
-                                    else -> "Confirmar pedido · S/ ${String.format("%.2f", total)}"
+                                    paymentMethod == "wallet" -> "Ya pagué · ${formatearSoles(total)}"
+                                    else -> "Confirmar pedido · ${formatearSoles(total)}"
                                 },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp

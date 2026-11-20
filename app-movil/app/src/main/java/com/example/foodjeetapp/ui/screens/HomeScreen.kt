@@ -42,7 +42,11 @@ fun HomeScreen(
     onAddToCart: (ProductItem) -> Unit,
     onNavigateToMenu: () -> Unit,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mostrarHero: Boolean = true,
+    tituloPrincipal: String = "Tu antojo. Sin escalas.",
+    subtituloPrincipal: String = "Lo mejor del barrio, directo a tu puerta.",
+    tituloSeccion: String = "Los favoritos del barrio"
 ) {
     var selectedCategories by remember { mutableStateOf(emptySet<String>()) }
     var minPrice by remember { mutableStateOf("") }
@@ -90,7 +94,7 @@ fun HomeScreen(
         item {
             Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
                 Text(
-                    text = "Tu antojo. Sin escalas.",
+                    text = tituloPrincipal,
                     fontSize = 30.sp,
                     lineHeight = 34.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -98,7 +102,7 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Lo mejor del barrio, directo a tu puerta.",
+                    text = subtituloPrincipal,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -122,7 +126,7 @@ fun HomeScreen(
         }
 
         // 2. Banner de promociones
-        if (promotions.isNotEmpty()) {
+        if (mostrarHero && promotions.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 HeroCarousel(
@@ -162,7 +166,7 @@ fun HomeScreen(
 
         item {
             Text(
-                text = "Los favoritos del barrio",
+                text = tituloSeccion,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),

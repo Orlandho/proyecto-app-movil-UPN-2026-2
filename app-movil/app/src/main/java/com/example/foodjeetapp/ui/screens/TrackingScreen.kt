@@ -34,6 +34,9 @@ import com.example.foodjeetapp.data.model.GeoPoint
 import com.example.foodjeetapp.data.model.OrderRecord
 import com.example.foodjeetapp.data.model.OrderStatus
 import com.example.foodjeetapp.data.model.Seguimiento
+import com.example.foodjeetapp.data.model.formatearSoles
+import com.example.foodjeetapp.data.remote.RetrofitClient
+import com.example.foodjeetapp.data.remote.ServidorFoodJet
 import com.example.foodjeetapp.ui.IntentsFoodJet
 import com.example.foodjeetapp.ui.components.DatosMapa
 import com.example.foodjeetapp.ui.components.FoodJetFooter
@@ -105,7 +108,8 @@ fun TrackingScreen(
     onViewHistory: () -> Unit,
     onBack: () -> Unit = onBackToMenu,
     onCancelOrder: (orderId: Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    servidor: ServidorFoodJet = RetrofitClient.servidor
 ) {
     val context = LocalContext.current
 
@@ -142,7 +146,7 @@ fun TrackingScreen(
                                 context,
                                 asunto = "Mi pedido FoodJet #${order.numericId}",
                                 texto = "Mi pedido #${order.numericId} de ${order.restauranteNombre} está: " +
-                                    "${order.estado.label}. Total S/ ${String.format("%.2f", order.total)}."
+                                    "${order.estado.label}. Total ${formatearSoles(order.total)}."
                             )
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "Compartir pedido")
@@ -228,7 +232,7 @@ fun TrackingScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            MapaDelPedido(order = order, reparto = reparto)
+            MapaDelPedido(order = order, reparto = reparto, servidor = servidor)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -478,7 +482,7 @@ private fun PasoIndicador(actual: Boolean, hecha: Boolean) {
 }
 
 @Composable
-private fun MapaDelPedido(order: OrderRecord, reparto: RepartoEnVivo?) {
+private fun MapaDelPedido(order: OrderRecord, reparto: RepartoEnVivo?, servidor: ServidorFoodJet) {
     val context = LocalContext.current
     val local = order.restauranteLatitud?.let { lat ->
         order.restauranteLongitud?.let { lon -> GeoPoint(lat, lon) }
@@ -505,7 +509,7 @@ private fun MapaDelPedido(order: OrderRecord, reparto: RepartoEnVivo?) {
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Box {
-                MapaFoodJet(datos = datos, modifier = Modifier.fillMaxWidth().height(260.dp))
+                MapaFoodJet(datos = datos, servidor = servidor, modifier = Modifier.fillMaxWidth().height(260.dp))
                 if (order.estado == OrderStatus.EN_CAMINO) {
                     Surface(
                         modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
@@ -610,12 +614,15 @@ private fun DetallesDelPedido(order: OrderRecord) {
             order.direccionEntrega?.takeIf { it.isNotBlank() }?.let { DetailRow("Entrega en:", it) }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             order.items.forEach { item ->
-                DetailRow("${item.quantity}x ${item.product.nombre}", "S/ ${String.format("%.2f", item.product.precio * item.quantity)}")
+                DetailRow("${item.quantity}x ${item.product.nombre}", formatearSoles(item.product.precio * item.quantity))
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            DetailRow("Impuestos (18%):", "S/ ${String.format("%.2f", order.impuestos)}")
-            DetailRow("Envío:", "S/ ${String.format("%.2f", order.envio)}")
-            DetailRow("Total Final:", "S/ ${String.format("%.2f", order.total)}", isBold = true)
+            if (order.descuento > 0.0) {
+                DetailRow("Descuento:", "-${formatearSoles(order.descuento)}")
+            }
+            DetailRow("Impuestos (18%):", formatearSoles(order.impuestos))
+            DetailRow("Envío:", formatearSoles(order.envio))
+            DetailRow("Total Final:", formatearSoles(order.total), isBold = true)
         }
     }
 }

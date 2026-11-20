@@ -66,7 +66,6 @@ class HomeViewModel(
 
     init {
         loadProducts()
-        loadFavorites()
     }
 
     fun loadFavorites() {
@@ -76,6 +75,11 @@ class HomeViewModel(
                 _favorites.value = ids
             }
         }
+    }
+
+    /** Limpia los favoritos en memoria al cerrar sesión o expirar el token. */
+    fun clearFavorites() {
+        _favorites.value = emptySet()
     }
 
     fun loadProducts() {
@@ -97,9 +101,9 @@ class HomeViewModel(
         }
     }
 
-    fun retry() {
+    fun retry(isLoggedIn: Boolean = false) {
         loadProducts()
-        loadFavorites()
+        if (isLoggedIn) loadFavorites()
     }
 
     fun setCategory(category: String) {

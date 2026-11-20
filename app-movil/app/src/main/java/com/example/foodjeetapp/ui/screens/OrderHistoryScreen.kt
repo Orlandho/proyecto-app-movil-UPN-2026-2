@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.foodjeetapp.data.common.UiState
 import com.example.foodjeetapp.data.model.OrderRecord
 import com.example.foodjeetapp.data.model.OrderStatus
+import com.example.foodjeetapp.data.model.formatearSoles
 import com.example.foodjeetapp.ui.components.StarRatingBar
 import com.example.foodjeetapp.ui.theme.*
 
@@ -246,7 +247,7 @@ private fun OrderCard(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = "S/ ${String.format("%.2f", item.product.precio * item.quantity)}",
+                        text = formatearSoles(item.product.precio * item.quantity),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -258,20 +259,20 @@ private fun OrderCard(
             // Resumen financiero
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Subtotal", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("S/ ${String.format("%.2f", order.subtotal)}", fontSize = 12.sp)
+                Text(formatearSoles(order.subtotal), fontSize = 12.sp)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("IGV (18%)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("S/ ${String.format("%.2f", order.impuestos)}", fontSize = 12.sp)
+                Text(formatearSoles(order.impuestos), fontSize = 12.sp)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Envío", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("S/ ${String.format("%.2f", order.envio)}", fontSize = 12.sp)
+                Text(formatearSoles(order.envio), fontSize = 12.sp)
             }
             if (order.descuento > 0.0) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Descuento", fontSize = 12.sp, color = FoodJetSuccess)
-                    Text("-S/ ${String.format("%.2f", order.descuento)}", fontSize = 12.sp, color = FoodJetSuccess)
+                    Text("-${formatearSoles(order.descuento)}", fontSize = 12.sp, color = FoodJetSuccess)
                 }
             }
 
@@ -279,7 +280,7 @@ private fun OrderCard(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("S/ ${String.format("%.2f", order.total)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = FoodJetPrimaryDark)
+                Text(formatearSoles(order.total), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = FoodJetPrimaryDark)
             }
 
             // Botón de Seguimiento en Tiempo Real si el pedido está activo

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.foodjeetapp.data.model.ProductItem
+import com.example.foodjeetapp.data.model.formatearSoles
 import com.example.foodjeetapp.ui.theme.FoodJetPrimary
 import com.example.foodjeetapp.ui.theme.FoodJetSuccess
 
@@ -137,7 +138,7 @@ fun FavoritesScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "S/ ${String.format("%.2f", price)}",
+                                    text = formatearSoles(price),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = FoodJetSuccess
