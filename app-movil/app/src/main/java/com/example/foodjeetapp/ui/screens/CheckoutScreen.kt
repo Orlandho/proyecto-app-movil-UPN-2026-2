@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,18 +105,31 @@ fun CheckoutScreen(
     val locationProvider = remember { ServiceLocator.locationProvider }
     val controladorMapa = remember { ControladorMapa() }
 
-    var name by remember(initialName) { mutableStateOf(initialName) }
-    var phone by remember(initialPhone) { mutableStateOf(initialPhone) }
-    var address by remember { mutableStateOf("") }
-    var reference by remember { mutableStateOf("") }
-    var punto by remember { mutableStateOf<GeoPoint?>(null) }
-    var precisionGps by remember { mutableStateOf<Double?>(null) }
-    var direccionGuardada by remember { mutableStateOf<SavedAddress?>(null) }
+    val geoPointSaver = remember {
+        listSaver<GeoPoint?, Double>(
+            save = { point -> if (point == null) emptyList() else listOf(point.latitud, point.longitud) },
+            restore = { saved -> if (saved.size == 2) GeoPoint(saved[0], saved[1]) else null }
+        )
+    }
+
+    var name by rememberSaveable { mutableStateOf(initialName) }
+    var phone by rememberSaveable { mutableStateOf(initialPhone) }
+    LaunchedEffect(initialName) {
+        if (name.isBlank() && initialName.isNotBlank()) name = initialName
+    }
+    LaunchedEffect(initialPhone) {
+        if (phone.isBlank() && initialPhone.isNotBlank()) phone = initialPhone
+    }
+    var address by rememberSaveable { mutableStateOf("") }
+    var reference by rememberSaveable { mutableStateOf("") }
+    var punto by rememberSaveable(stateSaver = geoPointSaver) { mutableStateOf<GeoPoint?>(null) }
+    var precisionGps by rememberSaveable { mutableStateOf<Double?>(null) }
+    var direccionGuardadaId by rememberSaveable { mutableStateOf<Int?>(null) }
     var mapaDisponible by remember { mutableStateOf<Boolean?>(null) }
-    var textoEditadoAMano by remember { mutableStateOf(false) }
-    var avisoUbicacion by remember { mutableStateOf<String?>(null) }
+    var textoEditadoAMano by rememberSaveable { mutableStateOf(false) }
+    var avisoUbicacion by rememberSaveable { mutableStateOf<String?>(null) }
     var buscandoUbicacion by remember { mutableStateOf(false) }
-    var mostrarExplicacionPermiso by remember { mutableStateOf(false) }
+    var mostrarExplicacionPermiso by rememberSaveable { mutableStateOf(false) }
     var local by remember { mutableStateOf<RestaurantDto?>(null) }
     var primerReposo by remember { mutableStateOf(true) }
 
@@ -129,11 +144,12 @@ fun CheckoutScreen(
 
     // Al cargar las direcciones se abre con la predeterminada que esté ubicada.
     val guardadas = (addressesState as? UiState.Success<List<SavedAddress>>)?.data.orEmpty()
+    val direccionGuardada = guardadas.firstOrNull { it.id == direccionGuardadaId }
     LaunchedEffect(guardadas) {
         if (address.isBlank() && punto == null) {
             val inicial = guardadas.filter { it.punto != null }.let { u -> u.firstOrNull { it.predeterminada } ?: u.firstOrNull() }
             inicial?.let {
-                direccionGuardada = it
+                direccionGuardadaId = it.id
                 address = it.direccion
                 reference = it.referencia.orEmpty()
                 punto = it.punto
@@ -153,9 +169,9 @@ fun CheckoutScreen(
         val actual = punto ?: return@LaunchedEffect
         val guardada = direccionGuardada
         if (guardada?.punto != null && Geo.distanciaMetros(guardada.punto!!, actual) > Geo.MISMA_UBICACION_M) {
-            direccionGuardada = null
+            direccionGuardadaId = null
         }
-        if (textoEditadoAMano || direccionGuardada != null) return@LaunchedEffect
+        if (textoEditadoAMano || direccionGuardadaId != null) return@LaunchedEffect
         delay(600)
         locationProvider.direccionDe(actual)?.let { address = it }
     }
@@ -177,7 +193,7 @@ fun CheckoutScreen(
             if (!Geo.dentroDeLima(lectura.punto)) {
                 avisoUbicacion = "Tu ubicación está fuera de Lima, donde reparte FoodJet. Revisa el punto antes de confirmar."
             }
-            direccionGuardada = null
+            direccionGuardadaId = null
             textoEditadoAMano = false
             precisionGps = lectura.precisionMetros
             punto = lectura.punto
@@ -224,7 +240,7 @@ fun CheckoutScreen(
             } else {
                 avisoUbicacion = null
                 textoEditadoAMano = true
-                direccionGuardada = null
+                direccionGuardadaId = null
                 precisionGps = null
                 punto = encontrado
                 controladorMapa.irA(encontrado)
@@ -240,7 +256,9 @@ fun CheckoutScreen(
     val faltaPunto = mapaDisponible == true && punto == null
 
     // Selección de Método de Pago: canónicos 'cash', 'card', 'wallet'
-    var paymentMethod by remember { mutableStateOf("cash") } // cash, card, wallet
+    var paymentMethod by rememberSaveable { mutableStateOf("cash") } // cash, card, wallet
+    // Los datos sensibles de tarjeta permanecen solo en memoria volátil (remember)
+    // y nunca se serializan en SavedInstanceState (Bundle) ante cambios de configuración.
     var cardNumber by remember { mutableStateOf("") }
     // TextFieldValue y no String: al insertar la "/" el cursor tiene que quedar al final.
     var cardExpiryCampo by remember { mutableStateOf(TextFieldValue("")) }
@@ -256,10 +274,10 @@ fun CheckoutScreen(
     val isFormValid = isLoggedIn && isNameValid && isPhoneValid && isAddressValid && !faltaPunto &&
         isPaymentValid && cartItems.isNotEmpty() && !isSubmitting
 
-    var couponCode by remember { mutableStateOf("") }
-    var couponAppliedId by remember { mutableStateOf<Int?>(null) }
-    var couponDiscountPercent by remember { mutableStateOf(0.0) }
-    var couponMessage by remember { mutableStateOf<String?>(null) }
+    var couponCode by rememberSaveable { mutableStateOf("") }
+    var couponAppliedId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var couponDiscountPercent by rememberSaveable { mutableStateOf(0.0) }
+    var couponMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Vista previa; el importe definitivo lo calcula el backend al registrar el pedido.
     val subtotal = cartItems.sumOf { it.product.getEffectivePrice(isStudent) * it.quantity }
@@ -391,9 +409,9 @@ fun CheckoutScreen(
                                 ) {
                                     guardadas.forEach { guardada ->
                                         FilterChip(
-                                            selected = direccionGuardada?.id == guardada.id,
+                                            selected = direccionGuardadaId == guardada.id,
                                             onClick = {
-                                                direccionGuardada = guardada
+                                                direccionGuardadaId = guardada.id
                                                 address = guardada.direccion
                                                 reference = guardada.referencia.orEmpty()
                                                 precisionGps = null
@@ -427,7 +445,7 @@ fun CheckoutScreen(
                             onValueChange = {
                                 address = it.take(200)
                                 textoEditadoAMano = true
-                                direccionGuardada = null
+                                direccionGuardadaId = null
                             },
                             label = { Text("Dirección de entrega") },
                             placeholder = { Text("Calle, número y distrito") },

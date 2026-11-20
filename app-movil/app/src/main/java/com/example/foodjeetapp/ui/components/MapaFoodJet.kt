@@ -307,8 +307,11 @@ fun MapaFoodJet(
                 },
                 onRelease = { vista ->
                     controlador?.desvincular(vista)
+                    vista.onPause()
                     vista.removeJavascriptInterface("Android")
                     vista.stopLoading()
+                    vista.clearHistory()
+                    (vista.parent as? ViewGroup)?.removeView(vista)
                     vista.destroy()
                     if (webView === vista) webView = null
                 }
