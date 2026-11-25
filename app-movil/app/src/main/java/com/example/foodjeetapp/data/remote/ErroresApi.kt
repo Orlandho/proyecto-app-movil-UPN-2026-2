@@ -39,8 +39,14 @@ object ErroresApi {
 
     fun mensajeDeRed(error: Throwable, accion: String): String = when (error) {
         is UnknownHostException -> "Sin conexión con el servidor al $accion. Revisa tu internet o el servidor elegido en Mi cuenta."
-        is ConnectException -> "No se pudo conectar con ${RetrofitClient.servidor.etiqueta} al $accion. " +
-            "Si es el servidor local, revisa que Docker esté levantado (docker compose up -d)."
+        is ConnectException -> when (val servidor = RetrofitClient.servidor) {
+            ServidorFoodJet.NODE_LOCAL_USB ->
+                "No se pudo conectar con ${servidor.etiqueta} al $accion. " +
+                    "Comprueba que backend/ esté ejecutándose en el puerto 3000 y que adb reverse tcp:3000 tcp:3000 esté activo."
+            ServidorFoodJet.NODE_LOCAL_EMULADOR ->
+                "No se pudo conectar con ${servidor.etiqueta} al $accion. " +
+                    "Comprueba que backend/ esté ejecutándose en tu PC (puerto 3000)."
+        }
         is SocketTimeoutException -> "El servidor tardó demasiado al $accion. Intenta de nuevo."
         is IOException -> "Error de red al $accion. Revisa tu conexión."
         else -> "No se pudo $accion: ${error.localizedMessage ?: error.javaClass.simpleName}"
